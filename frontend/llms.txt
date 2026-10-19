@@ -1,0 +1,62 @@
+# TempMail
+
+> Self-hosted temporary email service with a JSON HTTP API, mailbox isolation per account, MX domain management and email retrieval.
+
+## Documentation
+
+- [Web API reference](/): Sign in and open the “API 接口文档” page for the complete API index and curl examples.
+- [Health check](/health): Public service health endpoint.
+- [Public configuration](/public/settings): Public site settings.
+- [Public statistics](/public/stats): Public statistics.
+
+## Authentication
+
+Use `Authorization: Bearer YOUR_API_KEY` or `X-API-Key: YOUR_API_KEY` for `/api/*`.
+Avoid `?api_key=` because URLs may appear in logs. API keys are sensitive; never put them in prompts or public documents.
+Admin endpoints also require an admin account. `/health` and `/public/*` are public routes.
+
+## Public endpoints
+
+- `GET /health`: Health status.
+- `GET /public/settings`: Public site settings.
+- `GET /public/stats`: Public statistics.
+- `POST /public/key-login`: JSON `{"api_key":"YOUR_API_KEY"}`. Can be disabled for non-admin accounts.
+- `POST /public/register`: JSON `{"username":"example"}`, when registration is enabled.
+- `GET /public/auth/linuxdo` and `GET /public/auth/github`: OAuth login, with callbacks.
+
+## Authenticated endpoints
+
+- `GET /api/me`: Current account.
+- `GET /api/stats`: Stats.
+- `GET /api/domains`: Domains; response `{"domains":[...]}`.
+- `POST /api/domains/submit`: Submit domain for verification.
+- `GET /api/domains/:id/status`: Domain verification status.
+- `POST /api/mailboxes`: Create mailbox. Optional JSON fields `address`, `domain`, `mode` (`single` or `multi`). Response HTTP 201 `{"mailbox":{...}}`.
+- `GET /api/mailboxes?page=1&size=20&search=`: Mailboxes for current account; 1-based pagination, max size 100; case-insensitive address substring search. Response `{"data":[...],"total":0,"page":1,"size":20}`.
+- `DELETE /api/mailboxes/:id`: Delete mailbox.
+- `GET /api/mailboxes/:id/emails?page=1&size=20`: List emails in mailbox.
+- `GET /api/mailboxes/:id/emails/:email_id`: Email details; response `{"email":{...}}`.
+- `DELETE /api/mailboxes/:id/emails/:email_id`: Delete email.
+
+## Administrator endpoints
+
+- `POST /api/admin/accounts`, `GET /api/admin/accounts`, `DELETE /api/admin/accounts/:id`
+- `POST /api/admin/domains`, `POST /api/admin/domains/mx-import`, `POST /api/admin/domains/mx-register`, `POST /api/admin/domains/refresh-mx`
+- `DELETE /api/admin/domains/:id`, `PUT /api/admin/domains/:id/toggle`, `GET /api/admin/domains/:id/status`
+- `GET /api/admin/settings`, `PUT /api/admin/settings`
+
+## Example
+
+```sh
+curl -H 'Authorization: Bearer YOUR_API_KEY' 'https://YOUR_HOST/api/me'
+curl -X POST 'https://YOUR_HOST/api/mailboxes' -H 'Authorization: Bearer YOUR_API_KEY' -H 'Content-Type: application/json' -d '{"mode":"single"}'
+curl -H 'Authorization: Bearer YOUR_API_KEY' 'https://YOUR_HOST/api/mailboxes?page=1&size=20'
+```
+
+## Notes for agents
+
+- Use exact routes and methods above. Replace `:id` and `:email_id` with UUIDs.
+- Poll the mailbox email list to await delivery, with delays and a finite timeout.
+- API errors usually return a JSON `error` string. Handle HTTP 400/401/403/404/409/429/500 and availability failures such as 503.
+- Do not use internal delivery routes `/internal/*` from untrusted clients.
+- Do not hard-code secrets or run account registration stress tests against production.
