@@ -122,6 +122,7 @@ func main() {
 		api.POST("/mailboxes", mailboxH.Create)
 		api.GET("/mailboxes", mailboxH.List)
 		api.DELETE("/mailboxes/:id", mailboxH.Delete)
+		api.PUT("/mailboxes/:id/favorite", mailboxH.SetFavorite)
 
 		// 邮件管理
 		api.GET("/mailboxes/:id/emails", emailH.List)
