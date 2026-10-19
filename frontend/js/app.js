@@ -1570,7 +1570,7 @@ window.showAddDomainModal = function() {
           <input class="form-input" id="add-domain-inp" placeholder="example.com" autofocus />
           <div class="form-hint">输入将用于接收邮件的顶级域名</div>
         </div>
-        <div id="add-dns-hint" style="background:var(--bg-secondary);border-radius:6px;padding:0.7rem 0.9rem;margin-bottom:0.8rem;font-size:0.8rem">
+        <div id="add-dns-hint" style="background:var(--bg-secondary);border-radius:0;padding:0.7rem 0.9rem;margin-bottom:0.8rem;font-size:0.8rem">
           <b>需要配置的 DNS 记录：</b>
           <table style="margin-top:0.5rem;width:100%;border-collapse:collapse;font-size:0.76rem">
             <thead><tr><th style="text-align:left;padding:2px 5px">类型</th><th style="text-align:left;padding:2px 5px">主机名</th><th style="text-align:left;padding:2px 5px">内容</th><th style="text-align:left;padding:2px 5px">优先级</th></tr></thead>
@@ -1646,7 +1646,7 @@ window.showAddDomainModal = function() {
         if (resEl) {
           resEl.style.display = 'block';
           resEl.innerHTML = `
-            <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:6px;padding:0.6rem 0.9rem;font-size:0.82rem">
+            <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:0;padding:0.6rem 0.9rem;font-size:0.82rem">
               ${icon('alert')} <b>MX 记录未检测到</b>：${escHtml(err.message)}<br>
               ${mxDetailsHTML(err.details)}
               <span style="color:var(--text-muted)">请先配置上方 DNS 记录后重新检测，或点击「强制添加」跳过检测直接加入域名池</span>
@@ -2039,7 +2039,7 @@ window.showMXRegisterModal = function() {
         <label class="form-label">域名（如 example.com）</label>
         <input class="form-input" id="mxr-domain" placeholder="example.com" autofocus />
       </div>
-      <div id="mxr-dns-hint" style="background:var(--bg-secondary);border-radius:6px;padding:0.7rem 0.9rem;margin-bottom:0.6rem;font-size:0.8rem">
+      <div id="mxr-dns-hint" style="background:var(--bg-secondary);border-radius:0;padding:0.7rem 0.9rem;margin-bottom:0.6rem;font-size:0.8rem">
         <b>请在 DNS 管理面板添加以下记录：</b>
         <table style="margin-top:0.5rem;width:100%;border-collapse:collapse;font-size:0.76rem">
           <thead><tr><th style="text-align:left">类型</th><th style="text-align:left">主机名</th><th style="text-align:left">内容</th><th style="text-align:left">优先级</th></tr></thead>
@@ -2101,7 +2101,7 @@ window.showMXRegisterModal = function() {
 
         status.style.display = 'block';
         status.innerHTML = `
-          <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:6px;padding:0.6rem 0.9rem;font-size:0.81rem">
+          <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:0;padding:0.6rem 0.9rem;font-size:0.81rem">
             ${icon('timer')} <b>域名已加入验证队列（ID ${r.domain.id}）</b><br>
             MX 记录配置生效后（通常 5-30 分钟），系统将自动激活。<br>
             ${mxDetailsHTML(r.mx_details)}
@@ -2133,7 +2133,7 @@ window.showMXRegisterModal = function() {
         if (d.status === 'active') {
           clearInterval(timer);
           if (statusEl) statusEl.innerHTML = `
-            <div style="background:#e8f5e9;border:1px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;font-size:0.81rem">
+            <div style="background:#e8f5e9;border:1px solid #4caf50;border-radius:0;padding:0.6rem 0.9rem;font-size:0.81rem">
               ${icon('check')} <b>MX 验证通过！域名 ${escHtml(domainName)} 已自动激活。</b>
             </div>`;
           toast(`${domainName} 已自动激活`, 'success');
@@ -2141,7 +2141,7 @@ window.showMXRegisterModal = function() {
         } else if (statusEl) {
           const ago = d.mx_checked_at ? timeAgo(d.mx_checked_at) : '从未';
           statusEl.innerHTML = `
-            <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:6px;padding:0.6rem 0.9rem;font-size:0.81rem">
+            <div style="background:var(--clr-warn-bg,#fff8e1);border:1px solid var(--clr-warn,#e6a817);border-radius:0;padding:0.6rem 0.9rem;font-size:0.81rem">
               ${icon('timer')} 等待中（第 ${attempts} 次检测，上次 ${ago}）...
             </div>`;
         }
