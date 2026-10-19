@@ -1756,3 +1756,9 @@ button:disabled, .btn:disabled { cursor: not-allowed; opacity: .45; }
   .api-endpoint-row { gap: .65rem; padding: .75rem; }
   .api-method { flex-basis: 3.7rem; }
 }
+
+/* Featured mailbox controls - intentionally square corners. */
+.mailbox-favorite-filter { display:inline-flex !important; align-items:center; gap:.45rem; margin:0 0 .55rem; font-size:.82rem; cursor:pointer; white-space:nowrap; }
+.mailbox-favorite-filter input { accent-color:var(--clr-primary); width:1rem; height:1rem; }
+.mailbox-actions .is-favorite { color:var(--clr-warn,#b8860b); font-size:1.15rem; }
+.mailbox-actions button[title="设为精选"], .mailbox-actions button[title="取消精选"] { min-width:2.3rem; font-size:1.15rem; }
