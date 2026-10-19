@@ -94,6 +94,7 @@ func (h *SettingHandler) AdminUpdate(c *gin.Context) {
 		"announcement":           true,
 		"default_domain":         true,
 		"mailbox_ttl_minutes":    true,
+		"auto_create_unknown_mailboxes": true,
 		"key_login_enabled":      true,
 		"linuxdo_login_enabled":  true,
 		"linuxdo_client_id":      true,
