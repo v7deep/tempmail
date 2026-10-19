@@ -2152,206 +2152,71 @@ window.showMXRegisterModal = function() {
 
 // ─── API 文档 ─────────────────────────────────────────
 function renderApiDocs(container) {
-  const key = state.apiKey || 'YOUR_API_KEY';
   const base = window.location.origin;
-  const sections = [
-    {
-      icon: 'lock',
-      title: '认证方式',
-      desc: '所有 /api/* 接口需要在 HTTP Header 中携带 API Key：',
-      code: `# Bearer Token 方式
-curl -H "Authorization: Bearer ${key}" ${base}/api/me
-
-# Query 参数方式
-curl "${base}/api/me?api_key=${key}"`,
-    },
-    {
-      icon: 'mail',
-      title: '1. 创建临时邮箱',
-      desc: 'POST /api/mailboxes — address、domain、mode 均为可选字段；未传 mode 时 API 随机生成单域名或 10-14 级多级域名邮箱',
-      code: `# API 默认：随机地址 + 随机单域名或 10-14 级多级域名邮箱
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{}'
-
-# 前端默认行为：普通单级域名邮箱
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"mode": "single"}'
-
-# 指定本地部分（@ 之前），域名随机
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"address": "mytestbox"}'
-
-# 指定域名，地址随机（domain 须是已激活域名）
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"mode": "single", "domain": "mail.example.com"}'
-
-# 指定通配基础域名，生成多级邮箱
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"mode": "multi", "domain": "example.com"}'
-
-# 同时指定地址和域名
-curl -s -X POST ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"mode": "single", "address": "mytestbox", "domain": "mail.example.com"}'
-
-# 错误码：
-#   400 → domain 不存在或未激活
-#   409 → 地址已被占用（换一个 address 或留空让系统随机生成）
-#   503 → 系统内无可用域名`,
-    },
-    {
-      icon: 'clipboard',
-      title: '2. 获取邮箱列表',
-      desc: 'GET /api/mailboxes — 获取当前账号下所有邮箱',
-      code: `curl -s ${base}/api/mailboxes \\
-  -H "Authorization: Bearer ${key}"
-
-# 分页
- curl -s "${base}/api/mailboxes?page=1&size=20" \\
-  -H "Authorization: Bearer ${key}"`,
-    },
-    {
-      icon: 'inbox',
-      title: '3. 获取邮箱收件箱（邮件列表）',
-      desc: 'GET /api/mailboxes/:id/emails — 按收件时间倒序列出邮件摘要',
-      code: `MAILBOX_ID="你的邮箱UUID"
-curl -s ${base}/api/mailboxes/$MAILBOX_ID/emails \\
-  -H "Authorization: Bearer ${key}"
-
-# 分页
-curl -s "${base}/api/mailboxes/$MAILBOX_ID/emails?page=1&size=20" \\
-  -H "Authorization: Bearer ${key}"`,
-    },
-    {
-      icon: 'fileText',
-      title: '4. 读取单封邮件',
-      desc: 'GET /api/mailboxes/:id/emails/:email_id — 获取邮件完整内容（含 HTML/纯文本和原始数据）',
-      code: `MAILBOX_ID="你的邮箱UUID"
-EMAIL_ID="你的邮件UUID"
-curl -s ${base}/api/mailboxes/$MAILBOX_ID/emails/$EMAIL_ID \\
-  -H "Authorization: Bearer ${key}"`,
-    },
-    {
-      icon: 'trash',
-      title: '5. 删除邮箱',
-      desc: 'DELETE /api/mailboxes/:id — 立即删除邮箱及其所有邮件',
-      code: `MAILBOX_ID="你的邮箱UUID"
-curl -s -X DELETE ${base}/api/mailboxes/$MAILBOX_ID \\
-  -H "Authorization: Bearer ${key}"`,
-    },
-    {
-      icon: 'trash',
-      title: '6. 删除单封邮件',
-      desc: 'DELETE /api/mailboxes/:id/emails/:email_id',
-      code: `curl -s -X DELETE ${base}/api/mailboxes/$MAILBOX_ID/emails/$EMAIL_ID \\
-  -H "Authorization: Bearer ${key}"`,
-    },
-    {
-      icon: 'flask',
-      title: '7. 完整自动化示例（Shell 脚本）',
-      desc: '创建邮箱 → 等待 5 秒 → 读取邮件 → 清理',
-      code: `#!/bin/bash
-BASE="${base}"
-KEY="${key}"
-
-# 1. 创建临时邮箱
-MB=$(curl -s -X POST $BASE/api/mailboxes \\
-  -H "Authorization: Bearer $KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{}')
-MB_ID=$(echo $MB | python3 -c "import sys,json; print(json.load(sys.stdin)['mailbox']['id'])")
-MB_ADDR=$(echo $MB | python3 -c "import sys,json; print(json.load(sys.stdin)['mailbox']['full_address'])")
-echo "邮箱: $MB_ADDR (主键: $MB_ID)"
-
-# 2. 向邮箱发送邮件...
-echo "将测试邮件发到: $MB_ADDR"
-sleep 5
-
-# 3. 查看收件筱
-EMAILS=$(curl -s $BASE/api/mailboxes/$MB_ID/emails \\
-  -H "Authorization: Bearer $KEY")
-echo "取到邮件: $EMAILS" | python3 -m json.tool
-
-# 4. 读取第一封邮件（收件箱）
-EMAIL_ID=$(echo $EMAILS | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['data'][0]['id']) if d.get('data') else print('')" 2>/dev/null)
-if [ -n "$EMAIL_ID" ]; then
-  curl -s $BASE/api/mailboxes/$MB_ID/emails/$EMAIL_ID \\
-    -H "Authorization: Bearer $KEY" | python3 -m json.tool
-fi
-
-# 5. 删除邮箱
-curl -s -X DELETE $BASE/api/mailboxes/$MB_ID \\
-  -H "Authorization: Bearer $KEY"
-echo "邮箱已删除"`,
-    },
-    {
-      icon: 'chart',
-      title: '8. 并发压测示例（wrk）',
-      desc: '对注册接口进行高并发压测，500 并发，持续 30 秒',
-      code: `# 安装 wrk: apt install wrk
-
-# 导出注册脚本
-cat > /tmp/register.lua << 'EOF'
-wrk.method = "POST"
-wrk.body   = '{"username": "user_' .. math.random(100000,999999) .. '"}'
-wrk.headers["Content-Type"] = "application/json"
-EOF
-
-# 运行压测
-wrk -t 10 -c 500 -d 30s --script /tmp/register.lua \\
-  ${base}/public/register
-
-# 或使用 k6
-cat > /tmp/test.js << 'EOF'
-import http from 'k6/http';
-import { check } from 'k6';
-export const options = { vus: 500, duration: '30s' };
-const KEY = '${key}';
-export default function() {
-  const r = http.post(
-    '${base}/api/mailboxes',
-    '{}',
-    { headers: { 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' }}
-  );
-  check(r, { '创建成功': r => r.status === 201 });
-}
-EOF
-k6 run /tmp/test.js`,
-    },
+  const endpoints = [
+    ['基础与登录', [
+      ['GET', '/health', '健康检查', '不需要认证；返回 status 和当前 Unix 时间。'],
+      ['GET', '/public/settings', '公开站点配置', '不需要认证；返回公开的站点配置。'],
+      ['GET', '/public/stats', '公开统计', '不需要认证。'],
+      ['POST', '/public/key-login', 'API Key 登录', 'JSON：{"api_key":"YOUR_API_KEY"}；登录开关关闭时普通账户不可使用，管理员例外。'],
+      ['POST', '/public/register', '注册账号', 'JSON：{"username":"example"}；仅在开放注册时可用，成功会返回新账户的 API Key。'],
+      ['GET', '/public/auth/linuxdo', 'Linux DO OAuth', '浏览器跳转登录；包含 callback 端点。'],
+      ['GET', '/public/auth/github', 'GitHub OAuth', '浏览器跳转登录；包含 callback 端点。']
+    ]],
+    ['账户与域名', [
+      ['GET', '/api/me', '当前账户', '返回账户 ID、用户名、角色等信息。'],
+      ['GET', '/api/stats', '账户统计', '需要认证。'],
+      ['GET', '/api/domains', '可用域名', '响应格式：{"domains":[...]}。'],
+      ['POST', '/api/domains/submit', '提交域名验证', '提交待验证域名；验证为异步处理。'],
+      ['GET', '/api/domains/:id/status', '查询验证状态', '通过域名 ID 获取验证进度。']
+    ]],
+    ['邮箱与邮件', [
+      ['POST', '/api/mailboxes', '创建邮箱', 'JSON 可选：address、domain、mode（single / multi）。成功 201，响应：{"mailbox":{...}}。'],
+      ['GET', '/api/mailboxes', '邮箱列表与搜索', '查询：page（默认 1）、size（默认 20，最大 100）、search（邮箱地址子串，不区分大小写）。响应：{"data":[...],"total":0,"page":1,"size":20}。'],
+      ['DELETE', '/api/mailboxes/:id', '删除邮箱', '删除指定邮箱；操作无法撤销。'],
+      ['GET', '/api/mailboxes/:id/emails', '邮件列表', '查询：page、size；响应包括 data、total、page、size。'],
+      ['GET', '/api/mailboxes/:id/emails/:email_id', '邮件详情', '响应：{"email":{...}}；包含正文等邮件数据。'],
+      ['DELETE', '/api/mailboxes/:id/emails/:email_id', '删除邮件', '删除指定邮件；操作无法撤销。']
+    ]],
+    ['管理员接口（仅管理员）', [
+      ['POST', '/api/admin/accounts', '创建账户', '创建账户并分配 API Key。'],
+      ['GET', '/api/admin/accounts', '账户列表', '查询：page、size。'],
+      ['DELETE', '/api/admin/accounts/:id', '删除账户', '删除指定账户。'],
+      ['POST', '/api/admin/domains', '添加域名', '添加受管理域名。'],
+      ['POST', '/api/admin/domains/mx-import', 'MX 导入', '导入域名 MX 信息。'],
+      ['POST', '/api/admin/domains/mx-register', 'MX 注册', '提交域名注册请求。'],
+      ['POST', '/api/admin/domains/refresh-mx', '刷新 MX 状态', '触发域名 MX 检查。'],
+      ['DELETE', '/api/admin/domains/:id', '删除域名', '删除指定域名。'],
+      ['PUT', '/api/admin/domains/:id/toggle', '域名启停', '更新域名状态。'],
+      ['GET', '/api/admin/domains/:id/status', '域名状态', '管理员域名状态查询。'],
+      ['GET', '/api/admin/settings', '获取管理配置', '返回管理员可访问的配置。'],
+      ['PUT', '/api/admin/settings', '更新管理配置', '通过 JSON 更新允许修改的系统配置。']
+    ]]
   ];
-
-  container.innerHTML = `
-    <div class="api-docs-page">
-      <div class="api-key-panel">
-        <span class="api-key-label">当前 API Key</span>
-        <code class="api-key-value" onclick="this.style.filter='none'">${escHtml(key)}</code>
-        <button class="copy-btn" onclick="copyText('${escHtml(key)}')" title="复制">${icon('copy')}</button>
-      </div>
-      ${sections.map((s,i) => `
-        <div class="card api-doc-card" style="margin-bottom:1rem">
-          <div class="card-header"><div class="card-title">${icon(s.icon || 'fileText')} ${escHtml(s.title)}</div></div>
-          <div class="card-body">
-            <p class="api-doc-desc">${escHtml(s.desc)}</p>
-            <div class="api-code-block">
-              <button class="copy-btn api-code-copy" onclick="copyText(${JSON.stringify(s.code)})" title="复制">${icon('copy')}</button>
-              ${escHtml(s.code)}
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
+  const snippets = [
+    ['读取当前账户', 'curl -H "Authorization: Bearer YOUR_API_KEY" "' + base + '/api/me"'],
+    ['创建单级邮箱', 'curl -X POST "' + base + '/api/mailboxes" \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"mode":"single"}\''],
+    ['搜索邮箱（服务端分页）', 'curl -G "' + base + '/api/mailboxes" \\\n  -H "Authorization: Bearer YOUR_API_KEY" \\\n  --data-urlencode "search=example" \\\n  --data-urlencode "page=1" \\\n  --data-urlencode "size=20"'],
+    ['读取邮件列表', 'curl -H "Authorization: Bearer YOUR_API_KEY" "' + base + '/api/mailboxes/MAILBOX_UUID/emails?page=1&size=20"']
+  ];
+  container.innerHTML = '<div class="api-docs-page">' +
+    '<div class="card api-doc-card"><div class="card-body">' +
+    '<h2>TempMail HTTP API</h2>' +
+    '<p class="api-doc-desc">请求地址：<code>' + escHtml(base) + '</code> · JSON 请求与响应 · 按账户隔离邮箱数据。</p>' +
+    '<p class="api-doc-desc"><strong>认证：</strong>除 /health 和 /public/* 外，业务 API 使用 <code>Authorization: Bearer YOUR_API_KEY</code>。也支持 <code>X-API-Key</code>；不推荐在 URL 查询参数里传密钥（容易泄露到日志）。管理员接口还需要管理员权限。</p>' +
+    '<p class="api-doc-desc"><strong>错误：</strong>400 参数不合法、401 凭证无效、403 无权限、404 资源不存在、409 冲突、429 请求过快、500 服务异常；部分创建请求可能返回 503。错误响应通常包含 <code>error</code> 字段。实际状态码以接口结果为准。</p>' +
+    '<p class="api-doc-desc">以下示例使用占位符，不会将你当前的真实 API Key 写入文档或复制内容。查看 <a href="/llms.txt" target="_blank" rel="noopener noreferrer">llms.txt</a> 获取适合 AI 工具读取的接口索引。</p>' +
+    '</div></div>' +
+    '<h3 style="margin:1.2rem 0 .65rem">快速开始</h3>' +
+    snippets.map(([name, code]) => '<div class="card api-doc-card" style="margin-bottom:.75rem"><div class="card-body">' +
+      '<strong>' + escHtml(name) + '</strong><pre class="api-code-block" style="white-space:pre-wrap;overflow-wrap:anywhere"><code>' + escHtml(code) + '</code></pre></div></div>').join('') +
+    endpoints.map(([group, routes]) => '<section class="api-doc-group"><h3>' + escHtml(group) + '</h3>' +
+      '<div class="api-endpoint-list">' + routes.map(([method, path, name, note]) =>
+        '<div class="api-endpoint-row"><span class="api-method api-method-' + method.toLowerCase() + '">' + method + '</span>' +
+        '<div class="api-endpoint-main"><code>' + escHtml(path) + '</code><strong>' + escHtml(name) + '</strong><p>' + escHtml(note) + '</p></div></div>'
+      ).join('') + '</div></section>').join('') +
+    '<p class="api-doc-desc" style="margin-top:1rem">内部邮件投递接口 /internal/* 供受信任的服务调用，不属于公开客户端 API。</p>' +
+    '</div>';
 }
 
 // ─── 启动 ──────────────────────────────────────────────────
