@@ -12,6 +12,7 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ func (c *emailCounters) drain() (int64, map[uuid.UUID]int64) {
 type Store struct {
 	pool     *pgxpool.Pool
 	counters emailCounters
+ telegramQueue chan telegramEvent
 }
 
 type PoolOptions struct {
@@ -613,19 +615,19 @@ func (s *Store) CreateMailbox(ctx context.Context, accountID uuid.UUID, address 
 	return &m, nil
 }
 
-func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int, search string) ([]model.Mailbox, int, error) {
+func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int, search string, favoritesOnly bool) ([]model.Mailbox, int, error) {
 	var total int
 	err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1 AND ($2 = '' OR POSITION(LOWER($2) IN LOWER(full_address)) > 0)`, accountID, search).Scan(&total)
+		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1 AND ($2 = '' OR POSITION(LOWER($2) IN LOWER(full_address)) > 0) AND ($3 = FALSE OR is_favorite = TRUE)`, accountID, search, favoritesOnly).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, account_id, address, domain_id, full_address, created_at, expires_at
-		 FROM mailboxes WHERE account_id = $1 AND ($4 = '' OR POSITION(LOWER($4) IN LOWER(full_address)) > 0)
-		 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
-		accountID, size, (page-1)*size, search,
+		`SELECT id, account_id, address, domain_id, full_address, created_at, expires_at, is_favorite
+		 FROM mailboxes WHERE account_id = $1 AND ($4 = '' OR POSITION(LOWER($4) IN LOWER(full_address)) > 0) AND ($5 = FALSE OR is_favorite = TRUE)
+		 ORDER BY is_favorite DESC, created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+		accountID, size, (page-1)*size, search, favoritesOnly,
 	)
 	if err != nil {
 		return nil, 0, err
@@ -840,6 +842,8 @@ func (s *Store) DeliverEmails(ctx context.Context, recipients []string, sender, 
 		return []DeliveredEmail{}, nil
 	}
 
+	if err := s.EnsureUnknownMailboxes(ctx, recipients); err != nil { return nil, err }
+
 	rows, err := s.pool.Query(ctx, `
 		WITH input AS MATERIALIZED (
 			SELECT recipient, ordinality::BIGINT AS ordinal
@@ -906,6 +910,7 @@ func (s *Store) DeliverEmails(ctx context.Context, recipients []string, sender, 
 		}
 	}
 	s.counters.incMany(deliveredMailboxIDs)
+ s.enqueueTelegram(results, sender, subject)
 	return results, nil
 }
 
@@ -1109,4 +1114,58 @@ func JoinCustomSubdomain(subdomain, baseDomain string) (string, error) {
 		}
 	}
 	return strings.Join(labels, ".") + "." + strings.ToLower(strings.TrimSpace(baseDomain)), nil
+}
+
+// SetMailboxFavorite is scoped to the current account; no other account can star its mailboxes.
+func (s *Store) SetMailboxFavorite(ctx context.Context, accountID, mailboxID uuid.UUID, favorite bool) (bool, error) {
+  tag, err := s.pool.Exec(ctx, "UPDATE mailboxes SET is_favorite=$1 WHERE id=$2 AND account_id=$3", favorite, mailboxID, accountID)
+  if err != nil { return false, err }
+  return tag.RowsAffected() > 0, nil
+}
+
+// EnsureUnknownMailboxes creates unknown recipients only when explicitly enabled.
+// Unclaimed recipients always belong to the active admin account, never a random user.
+func (s *Store) EnsureUnknownMailboxes(ctx context.Context, recipients []string) error {
+ enabled, err := s.GetSetting(ctx, "auto_create_unknown_mailboxes")
+ if err != nil || enabled != "true" || len(recipients) == 0 { return nil }
+ unique := make(map[string]struct{}, len(recipients))
+ addresses := make([]string, 0, len(recipients))
+ for _, raw := range recipients {
+  addr := strings.ToLower(strings.TrimSpace(raw))
+  if len(addr) > 320 || strings.Count(addr, "@") != 1 { continue }
+  parts := strings.SplitN(addr, "@", 2)
+  if len(parts[0]) == 0 || len(parts[0]) > 128 || len(parts[1]) == 0 || strings.ContainsAny(addr, " \t\r\n<>") { continue }
+  if _, ok := unique[addr]; ok { continue }
+  unique[addr] = struct{}{}; addresses = append(addresses, addr)
+ }
+ if len(addresses) == 0 { return nil }
+ ttl := 30
+ if raw, err := s.GetSetting(ctx, "mailbox_ttl_minutes"); err == nil {
+  if parsed, err := strconv.Atoi(raw); err == nil && parsed >= 0 { ttl = parsed }
+ }
+ expires := time.Now().Add(time.Duration(ttl)*time.Minute)
+ if ttl == 0 { expires = time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC) }
+ _, err = s.pool.Exec(ctx, `
+ WITH owner AS (
+   SELECT id FROM accounts WHERE is_admin AND is_active ORDER BY created_at, id LIMIT 1
+ ), candidates AS (
+   SELECT DISTINCT lower(address) AS full_address, split_part(lower(address),'@',1) AS local_part, split_part(lower(address),'@',2) AS host
+   FROM unnest($1::TEXT[]) AS address
+ ), eligible AS (
+   SELECT c.full_address,c.local_part,d.id AS domain_id,o.id AS account_id
+   FROM candidates c CROSS JOIN owner o
+   JOIN LATERAL (
+     SELECT id FROM domains
+     WHERE is_active=TRUE AND status='active' AND (
+       (supports_single AND domain=c.host)
+       OR (supports_wildcard AND (c.host=base_domain OR right(c.host,length(base_domain)+1)='.'||base_domain))
+     ) ORDER BY (domain=c.host) DESC,id LIMIT 1
+   ) d ON TRUE
+   WHERE NOT EXISTS (SELECT 1 FROM mailboxes m WHERE m.full_address=c.full_address)
+ )
+ INSERT INTO mailboxes(account_id,address,domain_id,full_address,expires_at)
+ SELECT account_id,local_part,domain_id,full_address,$2 FROM eligible
+ WHERE (SELECT COUNT(*) FROM mailboxes m WHERE m.account_id=eligible.account_id)<5000
+ ON CONFLICT (full_address) DO NOTHING`, addresses, expires)
+ return err
 }

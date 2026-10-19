@@ -65,7 +65,11 @@ func (h *SettingHandler) AdminGetAll(c *gin.Context) {
 	} else {
 		settings["linuxdo_client_secret_set"] = "false"
 	}
-	if secret := settings["github_client_secret"]; secret != "" {
+	if secret := settings["telegram_bot_token"]; secret != "" {
+  settings["telegram_bot_token_set"] = "true"
+  settings["telegram_bot_token"] = ""
+ } else { settings["telegram_bot_token_set"] = "false" }
+ if secret := settings["github_client_secret"]; secret != "" {
 		settings["github_client_secret_set"] = "true"
 		settings["github_client_secret"] = ""
 	} else {
@@ -94,6 +98,10 @@ func (h *SettingHandler) AdminUpdate(c *gin.Context) {
 		"announcement":           true,
 		"default_domain":         true,
 		"mailbox_ttl_minutes":    true,
+		"auto_create_unknown_mailboxes": true,
+  "telegram_enabled": true,
+  "telegram_bot_token": true,
+  "telegram_chat_id": true,
 		"key_login_enabled":      true,
 		"linuxdo_login_enabled":  true,
 		"linuxdo_client_id":      true,
@@ -110,7 +118,7 @@ func (h *SettingHandler) AdminUpdate(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "unknown setting key: " + k})
 			return
 		}
-		if (k == "linuxdo_client_secret" || k == "github_client_secret") && v == "" {
+		if (k == "linuxdo_client_secret" || k == "github_client_secret" || k == "telegram_bot_token") && v == "" {
 			continue
 		}
 		if err := h.store.SetSetting(c.Request.Context(), k, v); err != nil {
@@ -119,4 +127,12 @@ func (h *SettingHandler) AdminUpdate(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "settings updated"})
+}
+
+func (h *SettingHandler) TestTelegram(c *gin.Context) {
+ if err := h.store.TestTelegram(c.Request.Context()); err != nil {
+  c.JSON(http.StatusBadGateway, gin.H{"error":"Telegram test failed; verify Bot Token, Chat ID, and that the bot has access to the chat"})
+  return
+ }
+ c.JSON(http.StatusOK, gin.H{"message":"Telegram test sent"})
 }

@@ -59,6 +59,7 @@ CREATE TABLE mailboxes (
     domain_id    INT          NOT NULL REFERENCES domains(id),
     full_address VARCHAR(320) NOT NULL,  -- 完整地址 "abc123@mail.xxx.xyz"
     received_email_count BIGINT NOT NULL DEFAULT 0,
+    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     expires_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW() + INTERVAL '30 minutes'
 );
@@ -134,3 +135,8 @@ INSERT INTO app_settings (key, value) VALUES ('site_logo_url', '') ON CONFLICT D
 -- ALTER SYSTEM SET work_mem = '4MB';
 -- ALTER SYSTEM SET maintenance_work_mem = '64MB';
 -- ALTER SYSTEM SET max_connections = 200;
+
+CREATE INDEX IF NOT EXISTS idx_mailboxes_account_favorite ON mailboxes (account_id, created_at DESC) WHERE is_favorite = TRUE;
+INSERT INTO app_settings (key, value) VALUES ('auto_create_unknown_mailboxes', 'false') ON CONFLICT DO NOTHING;
+
+INSERT INTO app_settings (key,value) VALUES ('telegram_enabled','false'),('telegram_bot_token',''),('telegram_chat_id','') ON CONFLICT DO NOTHING;

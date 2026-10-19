@@ -34,6 +34,7 @@ const state = {
   mailboxTotal: 0,
   mailboxSize: 20,
   mailboxSearch: '',
+  mailboxFavoritesOnly: false,
   emails:    [],
 };
 
@@ -183,8 +184,11 @@ const api = {
   getDomainStatus: id => apiFetch(API_BASE + '/domains/' + id + '/status'),
   // 邮箱 → 解包 {data:[...]}
   createMailbox:   (body) => apiFetch(API_BASE + '/mailboxes', { method: 'POST', body: JSON.stringify(body || {}) }).then(d => d.mailbox || d),
-  listMailboxes:   (page = 1, size = 20, search = '') =>
-    apiFetch(API_BASE + '/mailboxes?' + new URLSearchParams({ page, size, search })),
+  listMailboxes:   (page = 1, size = 20, search = '', favorites = false) =>
+    apiFetch(API_BASE + '/mailboxes?' + new URLSearchParams({ page, size, search, favorites })),
+  setMailboxFavorite: (id, favorite) => apiFetch(API_BASE + '/mailboxes/' + id + '/favorite', {
+    method: 'PUT', body: JSON.stringify({ favorite })
+  }),
   deleteMailbox: id  => apiFetch(API_BASE + '/mailboxes/' + id, { method: 'DELETE' }),
   // 邮件 → 解包 {data:[...]}
   listEmails: mid    => apiFetch(API_BASE + '/mailboxes/' + mid + '/emails').then(d => Array.isArray(d) ? d : (d.data || [])),
@@ -695,7 +699,7 @@ async function renderDashboard(container, page = 1) {
   const pageSize = state.mailboxSize;
   page = Math.max(1, Math.floor(Number(page) || 1));
   const [mailboxResult, domains, statsData] = await Promise.all([
-    api.listMailboxes(page, pageSize, state.mailboxSearch),
+    api.listMailboxes(page, pageSize, state.mailboxSearch, state.mailboxFavoritesOnly),
     api.domains(),
     api.stats().catch(() => null),
   ]);
@@ -755,6 +759,7 @@ async function renderDashboard(container, page = 1) {
       <label class="mailbox-search-label" for="mailbox-search">搜索邮箱
         <input id="mailbox-search" class="form-input" type="search" placeholder="搜索邮箱地址（Ctrl / ⌘ + K）" value="${escHtml(state.mailboxSearch)}" autocomplete="off" oninput="scheduleMailboxSearch(this.value)" aria-controls="mailbox-results" />
       </label>
+      <label class="mailbox-favorite-filter"><input type="checkbox" ${state.mailboxFavoritesOnly ? 'checked' : ''} onchange="setMailboxFavoriteFilter(this.checked)" /> 只看精选</label>
       <label class="mailbox-size-label" for="mailbox-page-size">每页显示
         <select id="mailbox-page-size" class="form-input" onchange="setMailboxPageSize(this.value)">
           ${[10,20,50,100].map(n => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n} 条</option>`).join('')}
@@ -785,6 +790,7 @@ function mailboxResultsHTML(boxes, total, page, size, search) {
       </div>
     </div>`;
 }
+window.setMailboxFavoriteFilter = function(enabled) { state.mailboxFavoritesOnly = enabled; changeMailboxPage(1, true); };
 let mailboxPageRequest = 0;
 let mailboxSearchTimer;
 window.scheduleMailboxSearch = function(value) {
@@ -823,7 +829,7 @@ window.changeMailboxPage = async function(page, force = false) {
   const results = $('mailbox-results');
   if (results) results.setAttribute('aria-busy', 'true');
   try {
-    const result = await api.listMailboxes(next, size, search);
+    const result = await api.listMailboxes(next, size, search, state.mailboxFavoritesOnly);
     if (request !== mailboxPageRequest || state.page !== 'dashboard') return;
     const total = Number(result.total) || 0;
     const pages = Math.max(1, Math.ceil(total / size));
@@ -872,6 +878,7 @@ function buildMailboxCard(mb) {
         ${expiryHtml}
       </div>
       <div class="mailbox-actions">
+        <button class="btn btn-ghost btn-sm ${mb.is_favorite ? 'is-favorite' : ''}" aria-label="${mb.is_favorite ? '取消精选' : '设为精选'}" title="${mb.is_favorite ? '取消精选' : '设为精选'}" onclick="event.stopPropagation();toggleMailboxFavorite('${mb.id}', ${!mb.is_favorite})">${mb.is_favorite ? '★' : '☆'}</button>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openInbox('${mb.id}','${escHtml(mb.full_address)}')">${iconButton('inbox', '查看邮件')}</button>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyText('${escHtml(mb.full_address)}')" title="复制地址">${icon('copy')}</button>
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();confirmDeleteMailbox('${mb.id}','${escHtml(mb.full_address)}')">${icon('trash')}</button>
@@ -879,6 +886,14 @@ function buildMailboxCard(mb) {
     </div>
   `;
 }
+
+window.toggleMailboxFavorite = async function(id, favorite) {
+  try {
+    await api.setMailboxFavorite(id, favorite);
+    toast(favorite ? '已加入精选邮箱' : '已取消精选', 'success');
+    await changeMailboxPage(state.mailboxPage, true);
+  } catch (e) { toast('精选操作失败：' + e.message, 'error'); }
+};
 
 window.openInbox = function(id, addr) {
   state.currentMailbox = { id, full_address: addr };
@@ -1725,6 +1740,10 @@ async function renderAdminSettings(container) {
   const regOpen    = settings.registration_open === 'true' || settings.registration_open === true;
   const keyLogin   = settings.key_login_enabled !== 'false' && settings.key_login_enabled !== false;
   const linuxDOLogin = settings.linuxdo_login_enabled === 'true' || settings.linuxdo_login_enabled === true;
+  const telegramEnabled = settings.telegram_enabled === 'true';
+  const telegramTokenSet = settings.telegram_bot_token_set === 'true';
+  const telegramChatID = settings.telegram_chat_id || '';
+  const autoCreateUnknown = settings.auto_create_unknown_mailboxes === 'true' || settings.auto_create_unknown_mailboxes === true;
   const gitHubLogin = settings.github_login_enabled === 'true' || settings.github_login_enabled === true;
   const smtpIp      = settings.smtp_server_ip       || '';
   const smtpHostname = settings.smtp_hostname         || '';
@@ -1883,6 +1902,36 @@ async function renderAdminSettings(container) {
         ${inputRow('input-default-domain', '默认邮箱域名', defDomain, '创建邮箱时下拉框优先选中的域名', 'mail.example.com')}
         <div class="divider"></div>
 
+        <div class="form-group">
+          <label class="toggle-row">
+            <input type="checkbox" id="toggle-auto-create" ${autoCreateUnknown ? 'checked' : ''} onchange="saveLoginSetting('auto_create_unknown_mailboxes',this.checked,'未知邮箱自动接收')" />
+            <span>未知收件地址自动建箱（管理员兜底）</span>
+          </label>
+          <div class="form-hint">关闭时未知地址继续丢弃；开启后，仅对已启用域名自动创建邮箱，统一归属 admin 管理员账户。可能受垃圾邮件攻击，请谨慎启用。未来可针对精选邮箱增加 Telegram 通知。</div>
+        </div>
+        <div class="divider"></div>
+        <div class="form-group">
+          <label class="form-label">Telegram 精选邮箱提醒</label>
+          <div class="form-hint">仅精选邮箱收到新邮件后提醒。需先通过 @BotFather 创建 Bot，并向 Bot 发送消息或将其加入目标群组。</div>
+          <label class="toggle-row">
+            <input type="checkbox" id="toggle-telegram-enabled" ${telegramEnabled ? 'checked' : ''} onchange="saveLoginSetting('telegram_enabled',this.checked,'Telegram 提醒')" />
+            <span>启用 Telegram 提醒</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bot Token</label>
+          <div style="display:flex;gap:.5rem">
+            <input class="form-input" id="input-telegram-bot-token" type="password" value="" autocomplete="new-password" placeholder="${telegramTokenSet ? '已配置；留空不修改' : '从 @BotFather 获取 Token'}" style="flex:1" />
+            <button class="btn btn-primary btn-sm" onclick="saveSetting('input-telegram-bot-token','telegram_bot_token')">${iconButton('check','保存')}</button>
+          </div>
+          <div class="form-hint">出于安全原因，已保存 Token 不会返回给浏览器。</div>
+        </div>
+        ${inputRow('input-telegram-chat-id','Chat ID',telegramChatID,'私人对话或群组的 Chat ID，群组通常是负数','例如 -1001234567890','telegram_chat_id')}
+        <div class="form-group">
+          <button class="btn btn-ghost btn-sm" onclick="testTelegramBot()">发送 Telegram 测试消息</button>
+          <div class="form-hint">先保存 Token 和 Chat ID，再测试；不必启用提醒也能测试。</div>
+        </div>
+        <div class="divider"></div>
         <!-- 邮箱 TTL -->
         ${inputRow('input-mailbox-ttl-minutes', '邮箱有效期（分钟）', ttlMins, '新建邮箱的默认存活时间，0 = 永不过期', '30')}
         <div class="divider"></div>
@@ -1922,7 +1971,7 @@ async function renderAdminSettings(container) {
 window.saveSetting = async function(inputId, settingKey) {
   const el2 = document.getElementById(inputId);
   const val = el2 ? (el2.tagName === 'TEXTAREA' ? el2.value : el2.value.trim()) : '';
-  if ((settingKey === 'linuxdo_client_secret' || settingKey === 'github_client_secret') && !val) {
+  if ((settingKey === 'linuxdo_client_secret' || settingKey === 'github_client_secret' || settingKey === 'telegram_bot_token') && !val) {
     toast('Client Secret 留空，未修改', 'info');
     return;
   }
@@ -1956,6 +2005,8 @@ window.saveLoginSetting = async function(key, enabled, label) {
       key_login_enabled: 'toggle-key-login',
       linuxdo_login_enabled: 'toggle-linuxdo-login',
       github_login_enabled: 'toggle-github-login',
+      telegram_enabled: 'toggle-telegram-enabled',
+      auto_create_unknown_mailboxes: 'toggle-auto-create',
     };
     const cb = $(cbMap[key]);
     if (cb) cb.checked = !enabled;
@@ -2249,3 +2300,10 @@ document.addEventListener('keydown', function(event) {
     document.activeElement.blur();
   }
 });
+
+window.testTelegramBot = async function() {
+  try {
+    await apiFetch(API_BASE + '/admin/telegram/test', {method:'POST'});
+    toast('Telegram 测试消息已发送', 'success');
+  } catch(e) { toast('Telegram 测试失败：' + e.message, 'error'); }
+};

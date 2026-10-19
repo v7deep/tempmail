@@ -60,3 +60,8 @@ curl -H 'Authorization: Bearer YOUR_API_KEY' 'https://YOUR_HOST/api/mailboxes?pa
 - API errors usually return a JSON `error` string. Handle HTTP 400/401/403/404/409/429/500 and availability failures such as 503.
 - Do not use internal delivery routes `/internal/*` from untrusted clients.
 - Do not hard-code secrets or run account registration stress tests against production.
+
+- `PUT /api/mailboxes/:id/favorite`: Mark featured mailbox with `{"favorite":true}` or unmark with false.
+- `GET /api/mailboxes?favorites=true`: List only featured mailboxes.
+- `POST /api/admin/telegram/test`: Admin-only Telegram test notification; requires saved Bot Token and Chat ID.
+- Telegram alerts are configured in admin settings (`telegram_enabled`, `telegram_bot_token`, `telegram_chat_id`) and fire only for new email delivered to featured mailboxes.
