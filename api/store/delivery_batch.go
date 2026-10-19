@@ -171,5 +171,8 @@ func (s *Store) DeliverMessageBatch(ctx context.Context, deliveries []MessageDel
 	}
 
 	s.counters.incMany(deliveredMailboxIDs)
+ for i, result := range results {
+  if result.Delivered { s.enqueueTelegram([]DeliveredEmail{result}, deliveries[i].Sender, deliveries[i].Subject) }
+ }
 	return results, nil
 }
