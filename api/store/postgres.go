@@ -613,19 +613,19 @@ func (s *Store) CreateMailbox(ctx context.Context, accountID uuid.UUID, address 
 	return &m, nil
 }
 
-func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int, search string) ([]model.Mailbox, int, error) {
+func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int, search string, favoritesOnly bool) ([]model.Mailbox, int, error) {
 	var total int
 	err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1 AND ($2 = '' OR POSITION(LOWER($2) IN LOWER(full_address)) > 0)`, accountID, search).Scan(&total)
+		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1 AND ($2 = '' OR POSITION(LOWER($2) IN LOWER(full_address)) > 0) AND ($3 = FALSE OR is_favorite = TRUE)`, accountID, search, favoritesOnly).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, account_id, address, domain_id, full_address, created_at, expires_at
-		 FROM mailboxes WHERE account_id = $1 AND ($4 = '' OR POSITION(LOWER($4) IN LOWER(full_address)) > 0)
-		 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
-		accountID, size, (page-1)*size, search,
+		`SELECT id, account_id, address, domain_id, full_address, created_at, expires_at, is_favorite
+		 FROM mailboxes WHERE account_id = $1 AND ($4 = '' OR POSITION(LOWER($4) IN LOWER(full_address)) > 0) AND ($5 = FALSE OR is_favorite = TRUE)
+		 ORDER BY is_favorite DESC, created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+		accountID, size, (page-1)*size, search, favoritesOnly,
 	)
 	if err != nil {
 		return nil, 0, err
@@ -1109,4 +1109,11 @@ func JoinCustomSubdomain(subdomain, baseDomain string) (string, error) {
 		}
 	}
 	return strings.Join(labels, ".") + "." + strings.ToLower(strings.TrimSpace(baseDomain)), nil
+}
+
+// SetMailboxFavorite is scoped to the current account; no other account can star its mailboxes.
+func (s *Store) SetMailboxFavorite(ctx context.Context, accountID, mailboxID uuid.UUID, favorite bool) (bool, error) {
+  tag, err := s.pool.Exec(ctx, "UPDATE mailboxes SET is_favorite=$1 WHERE id=$2 AND account_id=$3", favorite, mailboxID, accountID)
+  if err != nil { return false, err }
+  return tag.RowsAffected() > 0, nil
 }
