@@ -126,6 +126,10 @@ services:
     build:
       context: ./api
     restart: unless-stopped
+    # 指定外部 DNS 上游，容器服务名仍由 Docker 内置 DNS 解析。
+    dns:
+      - "${API_DNS_PRIMARY:-1.1.1.1}"
+      - "${API_DNS_SECONDARY:-1.0.0.1}"
     stop_grace_period: 30s
     ulimits:
       nofile:
