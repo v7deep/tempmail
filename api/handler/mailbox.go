@@ -180,7 +180,7 @@ func (h *MailboxHandler) List(c *gin.Context) {
 		size = 20
 	}
 
-	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size, strings.TrimSpace(c.Query("search")))
+	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size, strings.TrimSpace(c.Query("search")), c.Query("favorites") == "true")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -209,4 +209,19 @@ func (h *MailboxHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "mailbox deleted"})
+}
+
+ // PUT /api/mailboxes/:id/favorite — mark or unmark featured mailbox.
+func (h *MailboxHandler) SetFavorite(c *gin.Context) {
+ account := middleware.GetAccount(c)
+ id, err := parseUUID(c.Param("id"))
+ if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error":"invalid mailbox id"}); return }
+ var req struct { Favorite *bool `json:"favorite" binding:"required"` }
+ if err := c.ShouldBindJSON(&req); err != nil || req.Favorite == nil {
+   c.JSON(http.StatusBadRequest, gin.H{"error":"favorite must be boolean"}); return
+ }
+ updated, err := h.store.SetMailboxFavorite(c.Request.Context(), account.ID, id, *req.Favorite)
+ if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error":"failed to update mailbox"}); return }
+ if !updated { c.JSON(http.StatusNotFound, gin.H{"error":"mailbox not found"}); return }
+ c.JSON(http.StatusOK, gin.H{"id":id, "is_favorite":*req.Favorite})
 }
