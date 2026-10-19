@@ -37,8 +37,8 @@
   --font-sans: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
-  --radius:   18px;
-  --radius-sm: 10px;
+  --radius: 0;
+  --radius-sm: 0;
   --transition: 0.18s ease;
 
   /* sidebar 宽度 */
@@ -133,7 +133,7 @@ input, textarea, select { font-family: inherit; }
 /* 滚动条美化 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 0; }
 
 /* ---------- 布局 ---------- */
 #app { display: flex; min-height: 100vh; }
@@ -167,7 +167,7 @@ input, textarea, select { font-family: inherit; }
 .auth-card {
   background: rgba(250, 251, 248, 0.88);
   border: 1px solid rgba(213, 220, 214, 0.92);
-  border-radius: 28px;
+  border-radius: 0;
   padding: 2.4rem 2.25rem;
   width: 100%;
   max-width: 420px;
@@ -187,7 +187,7 @@ input, textarea, select { font-family: inherit; }
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.72);
   color: #242A28;
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.34rem 0.62rem;
   font-size: 0.72rem;
   font-weight: 650;
@@ -282,7 +282,7 @@ input, textarea, select { font-family: inherit; }
 .auth-logo .logo-icon {
   width: 56px; height: 56px;
   background: linear-gradient(135deg, #111716, #5C6964);
-  border-radius: 18px;
+  border-radius: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -303,7 +303,7 @@ img.logo-icon {
   display: flex;
   background: var(--bg-soft);
   border: 1px solid var(--border-light);
-  border-radius: 999px;
+  border-radius: 0;
   padding: 0.25rem;
   margin-bottom: 1.6rem;
 }
@@ -314,7 +314,7 @@ img.logo-icon {
   padding: 0.62rem 0.7rem;
   font-size: 0.88rem;
   color: var(--text-muted);
-  border-radius: 999px;
+  border-radius: 0;
   font-weight: 500;
   transition: color var(--transition), border-color var(--transition);
 }
@@ -355,7 +355,7 @@ img.logo-icon {
 .sidebar-logo .logo-mark {
   width: 36px; height: 36px;
   background: linear-gradient(135deg, #111716, #5C6964);
-  border-radius: 13px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -409,7 +409,7 @@ img.logo-mark {
   width: 100%;
   text-align: left;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 0;
   transition: color var(--transition), background var(--transition);
   position: relative;
 }
@@ -427,7 +427,7 @@ img.logo-mark {
   left: 0.25rem; top: 20%; bottom: 20%;
   width: 3px;
   background: var(--clr-primary-light);
-  border-radius: 999px;
+  border-radius: 0;
 }
 .nav-item .nav-icon { width: 18px; text-align: center; font-size: 0.95rem; }
 
@@ -441,13 +441,13 @@ img.logo-mark {
   gap: 0.6rem;
   padding: 0.5rem 0.7rem;
   background: var(--sidebar-soft);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   margin-bottom: 0.5rem;
 }
 .user-avatar {
   width: 30px; height: 30px;
   background: linear-gradient(135deg, #111716, #5C6964);
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -473,7 +473,7 @@ img.logo-mark {
   padding: 0.5rem;
   background: rgba(147,78,78,0.10);
   border: 1px solid rgba(147,78,78,0.28);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: #7A3030;
   font-size: 0.78rem;
   font-weight: 650;
@@ -497,7 +497,7 @@ img.logo-mark {
   padding: 0.45rem;
   background: var(--sidebar-soft);
   border: 1px solid var(--sidebar-border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--sidebar-muted);
   font-size: 0.78rem;
   margin-top: 0.4rem;
@@ -542,7 +542,7 @@ img.logo-mark {
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   box-shadow: 0 14px 38px rgba(15,17,18,0.065), inset 0 1px 0 rgba(255,255,255,0.72);
   overflow: hidden;
 }
@@ -578,7 +578,7 @@ img.logo-mark {
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 1.1rem 1.3rem;
   display: flex;
   flex-direction: column;
@@ -621,7 +621,7 @@ img.logo-mark {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.56rem 1rem;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.85rem;
   font-weight: 650;
   border: none;
@@ -682,7 +682,7 @@ img.logo-mark {
   padding: 0.68rem 0.9rem;
   background: rgba(255,255,255,0.56);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text);
   font-size: 0.88rem;
   transition: border-color var(--transition), box-shadow var(--transition);
@@ -701,7 +701,7 @@ img.logo-mark {
   padding: 0.28rem;
   background: var(--bg-soft);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .segmented-control label {
   min-width: 0;
@@ -717,7 +717,7 @@ img.logo-mark {
   justify-content: center;
   min-height: 2.15rem;
   padding: 0.45rem 0.55rem;
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 600;
@@ -744,8 +744,8 @@ img.logo-mark {
   padding: 0 0.8rem;
   border: 1px solid var(--border);
   border-left: 0;
-  border-top-right-radius: var(--radius-sm);
-  border-bottom-right-radius: var(--radius-sm);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
   background: var(--bg-soft);
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -835,7 +835,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.55rem;
-  border-radius: 100px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 600;
 }
@@ -849,7 +849,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
 .code-box {
   background: color-mix(in srgb, var(--bg-soft) 68%, white);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 0.6rem 0.8rem;
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -866,7 +866,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   color: var(--text-muted);
   cursor: pointer;
   padding: 0.2rem;
-  border-radius: 4px;
+  border-radius: 0;
   transition: color var(--transition);
   flex-shrink: 0;
   font-size: 0.85rem;
@@ -895,7 +895,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
 .email-item.unread { background: rgba(79,111,82,0.045); }
 .email-avatar {
   width: 38px; height: 38px;
-  border-radius: 50%;
+  border-radius: 0;
   background: linear-gradient(135deg, #53606A, #222B28);
   display: flex;
   align-items: center;
@@ -919,7 +919,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
 .mailbox-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 1.18rem 1.25rem;
   cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
@@ -956,7 +956,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   width: 32px; height: 32px;
   background: linear-gradient(180deg, #242A28, #111716);
   color: white;
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -989,7 +989,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   padding: 0.7rem 1rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   box-shadow: 0 4px 20px var(--shadow);
   font-size: 0.84rem;
   color: var(--text);
@@ -1023,7 +1023,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
 .modal {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 1.8rem;
   max-width: 480px;
   width: 100%;
@@ -1080,7 +1080,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   width: 18px; height: 18px;
   border: 2px solid var(--border);
   border-top-color: var(--clr-primary);
-  border-radius: 50%;
+  border-radius: 0;
   animation: spin 0.7s linear infinite;
   vertical-align: middle;
 }
@@ -1099,7 +1099,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   border: none;
   min-height: 400px;
   background: white;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: 0;
 }
 .email-body-text {
   padding: 1.3rem;
@@ -1130,7 +1130,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   cursor: pointer;
   inset: 0;
   background: var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   transition: background var(--transition);
 }
 .toggle-slider::before {
@@ -1139,7 +1139,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   width: 18px; height: 18px;
   left: 3px; bottom: 3px;
   background: white;
-  border-radius: 50%;
+  border-radius: 0;
   transition: transform var(--transition);
 }
 .toggle input:checked + .toggle-slider { background: var(--clr-jade); }
@@ -1164,7 +1164,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   padding: 0.85rem 1rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -1197,7 +1197,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   overflow-x: auto;
   padding: 1rem 1.1rem;
   padding-right: 2.8rem;
-  border-radius: 14px;
+  border-radius: 0;
   border: 1px solid #D9DEDB;
   background: #F4F6F5;
   color: #1F2623;
@@ -1255,7 +1255,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   gap: 0.55rem;
   max-width: 390px;
   padding: 0.58rem 0.62rem 0.58rem 0.72rem;
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid #D9DEDB;
   background: #F4F6F5;
   color: #1F2623;
@@ -1277,7 +1277,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   justify-content: center;
   background: rgba(255,255,255,0.72);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0;
   color: #53605B;
 }
 .account-key-box .copy-btn:hover {
@@ -1310,7 +1310,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   line-height: 1;
   padding: 0.3rem 0.45rem;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   transition: background var(--transition);
   flex-shrink: 0;
 }
@@ -1434,7 +1434,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   /* Modal → 底部弹出 */
   .modal-overlay { padding: 0; align-items: flex-end; }
   .modal {
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-radius: 0;
     max-height: 88vh;
     overflow-y: auto;
     padding: 1.4rem 1.2rem 2rem;
@@ -1462,7 +1462,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
   bottom: 1.25rem;
   width: 3rem;
   height: 3rem;
-  border-radius: 999px;
+  border-radius: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1542,7 +1542,7 @@ tr:hover td { background: rgba(79,111,82,0.055); }
 .inbox-live-dot i {
   width: 0.46rem;
   height: 0.46rem;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--clr-success);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--clr-success) 15%, transparent);
 }
@@ -1578,7 +1578,7 @@ select:focus-visible {
     min-width: 2.35rem;
     padding: 0;
     margin-left: 0 !important;
-    border-radius: 10px;
+    border-radius: 0;
   }
   #topbar-actions .btn span {
     display: none;
@@ -1681,8 +1681,8 @@ select:focus-visible {
 /* ===== Quiet, squared-off application UI =====
    Intentionally consolidate shape and density at the end of the cascade. */
 :root, [data-theme="dark"] {
-  --radius: 10px;
-  --radius-sm: 6px;
+  --radius: 0;
+  --radius-sm: 0;
 }
 .btn, .form-input, input, select, textarea,
 .card, .stat-card, .mailbox-card, .auth-card, .modal,
@@ -1692,13 +1692,13 @@ select:focus-visible {
 .sidebar-bottom, .segmented-control, .segmented-control span,
 .dropdown-menu, .dropdown-item, .badge, .tag,
 .guide-step, .github-float, .btn-theme {
-  border-radius: 6px;
+  border-radius: 0;
 }
 .btn-primary, .btn-danger, .btn-ghost, .btn-outline,
 .mailbox-pagination .btn, .mailbox-toolbar .form-input {
-  border-radius: 6px;
+  border-radius: 0;
 }
-.auth-card { border-radius: 12px; }
+.auth-card { border-radius: 0; }
 .card, .stat-card, .mailbox-card {
   box-shadow: none;
   transition: border-color .14s ease, background-color .14s ease;
@@ -1715,12 +1715,12 @@ select:focus-visible {
 .mailbox-actions .btn { min-height: 2.25rem; }
 .stat-card { padding: 1rem; }
 .stat-value { font-variant-numeric: tabular-nums; }
-.sidebar-nav a { border-radius: 6px; }
+.sidebar-nav a { border-radius: 0; }
 .sidebar-nav a:hover { transform: none; }
 .btn { transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
 .btn:hover { transform: none; }
 button:disabled, .btn:disabled { cursor: not-allowed; opacity: .45; }
-.mailbox-toolbar { padding: .85rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+.mailbox-toolbar { padding: .85rem 1rem; border: 1px solid var(--border); border-radius: 0; background: var(--bg-card); }
 .mailbox-toolbar .form-input { min-height: 2.45rem; }
 .mailbox-pagination { padding: .8rem 0; border-top: 1px solid var(--border-light); }
 .mailbox-jump { min-height: 2.3rem; }
@@ -1735,5 +1735,5 @@ button:disabled, .btn:disabled { cursor: not-allowed; opacity: .45; }
   .mailbox-pagination { gap: .65rem; }
   .mailbox-pagination-actions { gap: .3rem; }
   .mailbox-pagination-actions .btn { min-width: auto; }
-  #topbar-actions .btn { border-radius: 6px; }
+  #topbar-actions .btn { border-radius: 0; }
 }
