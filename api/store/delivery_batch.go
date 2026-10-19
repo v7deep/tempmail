@@ -86,6 +86,8 @@ func (s *Store) DeliverMessageBatch(ctx context.Context, deliveries []MessageDel
 		receivedTimes[i] = delivery.ReceivedAt
 	}
 
+	if err := s.EnsureUnknownMailboxes(ctx, recipients); err != nil { return nil, err }
+
 	rows, err := s.pool.Query(ctx, `
 		WITH input AS MATERIALIZED (
 			SELECT
