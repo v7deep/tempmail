@@ -1145,7 +1145,7 @@ func (s *Store) EnsureUnknownMailboxes(ctx context.Context, recipients []string)
  if ttl == 0 { expires = time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC) }
  _, err = s.pool.Exec(ctx, `
  WITH owner AS (
-   SELECT id FROM accounts WHERE username='admin' AND is_admin AND is_active ORDER BY created_at LIMIT 1
+   SELECT id FROM accounts WHERE is_admin AND is_active ORDER BY created_at, id LIMIT 1
  ), candidates AS (
    SELECT DISTINCT lower(address) AS full_address, split_part(lower(address),'@',1) AS local_part, split_part(lower(address),'@',2) AS host
    FROM unnest($1::TEXT[]) AS address
