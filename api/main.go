@@ -35,6 +35,7 @@ func main() {
 	}
 	defer db.Close()
 	log.Println("[OK] Database connected")
+ db.StartTelegramNotifier(ctx)
 	var deliveryBatcher *store.DeliveryBatcher
 	if cfg.DeliveryBatchEnabled {
 		deliveryBatcher = store.NewDeliveryBatcher(ctx, db, cfg.DeliveryBatchMax, cfg.DeliveryBatchWait)
@@ -147,6 +148,7 @@ func main() {
 			// 系统设置管理
 			admin.GET("/settings", settingH.AdminGetAll)
 			admin.PUT("/settings", settingH.AdminUpdate)
+   admin.POST("/telegram/test", settingH.TestTelegram)
 		}
 	}
 
