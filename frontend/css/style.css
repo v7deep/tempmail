@@ -1661,3 +1661,19 @@ select:focus-visible {
   .mailbox-pagination-actions { width: 100%; justify-content: center; }
   .mailbox-pagination-actions .btn { flex: 1; max-width: 10rem; min-height: 2.5rem; }
 }
+
+/* Mailbox search and pagination controls */
+.mailbox-toolbar { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin:1rem 0; }
+.mailbox-search-label { flex:1; min-width:190px; max-width:440px; }
+.mailbox-size-label { min-width:128px; }
+.mailbox-toolbar label { display:grid; gap:.4rem; font-size:.78rem; color:var(--text-secondary); }
+.mailbox-pagination-actions { align-items:center; flex-wrap:wrap; }
+.mailbox-jump { width:4.5rem; min-height:2rem; text-align:center; padding:.3rem; }
+#mailbox-results[aria-busy="true"] { opacity:.55; pointer-events:none; }
+@media(max-width:600px) {
+ .mailbox-toolbar { align-items:stretch; gap:.7rem; }
+ .mailbox-search-label { min-width:100%; max-width:none; }
+ .mailbox-size-label { width:100%; }
+ .mailbox-pagination-actions { flex-wrap:wrap; }
+ .mailbox-pagination-actions .btn { flex:initial; min-width:4rem; }
+}
