@@ -179,7 +179,22 @@ const api = {
   getDomainStatus: id => apiFetch(API_BASE + '/domains/' + id + '/status'),
   // 邮箱 → 解包 {data:[...]}
   createMailbox:   (body) => apiFetch(API_BASE + '/mailboxes', { method: 'POST', body: JSON.stringify(body || {}) }).then(d => d.mailbox || d),
-  listMailboxes:   () => apiFetch(API_BASE + '/mailboxes').then(d => Array.isArray(d) ? d : (d.data || [])),
+  listMailboxes:   async () => {
+    const size = 100;
+    const first = await apiFetch(API_BASE + '/mailboxes?page=1&size=' + size);
+    if (Array.isArray(first)) return first;
+    const all = [...(first.data || [])];
+    const total = Number(first.total);
+    if (!Number.isFinite(total) || total <= all.length) return all;
+    const pages = Math.ceil(total / size);
+    for (let page = 2; page <= pages; page++) {
+      const response = await apiFetch(API_BASE + '/mailboxes?page=' + page + '&size=' + size);
+      const next = Array.isArray(response) ? response : (response.data || []);
+      if (!next.length) break;
+      all.push(...next);
+    }
+    return [...new Map(all.map(mailbox => [mailbox.id, mailbox])).values()];
+  },
   deleteMailbox: id  => apiFetch(API_BASE + '/mailboxes/' + id, { method: 'DELETE' }),
   // 邮件 → 解包 {data:[...]}
   listEmails: mid    => apiFetch(API_BASE + '/mailboxes/' + mid + '/emails').then(d => Array.isArray(d) ? d : (d.data || [])),
@@ -755,9 +770,12 @@ async function renderDashboard(container) {
 
 function buildMailboxCard(mb) {
   const expiresAt = mb.expires_at ? new Date(mb.expires_at) : null;
+  const neverExpires = !expiresAt || expiresAt.getUTCFullYear() >= 9999;
   const now = new Date();
   let expiryHtml = '';
-  if (expiresAt) {
+  if (neverExpires) {
+    expiryHtml = `<span style="color:var(--clr-success);font-size:0.75rem">${icon('check')} 永不过期</span>`;
+  } else if (expiresAt) {
     const diffMs = expiresAt - now;
     if (diffMs <= 0) {
       expiryHtml = `<span style="color:var(--clr-danger);font-size:0.75rem">${icon('timer')} 已过期</span>`;
