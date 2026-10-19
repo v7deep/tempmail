@@ -80,6 +80,8 @@ docker compose logs api | grep "ADMIN API KEY"
 | `API_DB_DSN` | `postgres://tempmail:...@pgbouncer:6432/tempmail` | API 数据库连接串（经 PgBouncer）|
 | `API_REDIS_ADDR` | `redis:6379` | Redis 连接地址 |
 | `API_PORT` | `8080` | API 监听端口 |
+| `API_DNS_PRIMARY` | `1.1.1.1` | API 容器的首选外部 DNS 上游，在 Compose 中配置 |
+| `API_DNS_SECONDARY` | `1.0.0.1` | API 容器的备用外部 DNS 上游，在 Compose 中配置 |
 | `API_DB_MAX_CONNS` | `128` | API 到 PgBouncer 的最大客户端连接数 |
 | `API_DB_MIN_CONNS` | `16` | API 预热数据库连接数 |
 | `API_DELIVERY_BATCH_ENABLED` | `true` | 是否启用单封内部投递微批；不改变 API 路径或响应，可设为 `false` 快速回退 |
@@ -199,6 +201,29 @@ TXT  *      v=spf1 ip4:<服务器公网 IP> ~all
 - API 新建邮箱未传 `mode` 时优先使用多级域名；如果没有已激活的 `*.example.com` 通配域名，会自动回退到普通单级域名，兼容旧调用。
 - 如需 API 创建普通邮箱，请显式传 `{"mode":"single"}`。
 - 提交后系统会用类似 `mx-check.gmail.outlook.mail.com.net.example.com` 的多级主机名验证 MX 是否已经覆盖多层子域。
+
+### 容器 DNS 与 MX 检测排查
+
+`api` 容器的外部 DNS 上游默认为 `1.1.1.1` 和 `1.0.0.1`，用于 MX 检测及其他公网域名查询。可在 `.env` 中设置 `API_DNS_PRIMARY`、`API_DNS_SECONDARY`，改为部署网络内可访问的 DNS 服务器地址。已有 `.env` 未填写这两个变量时，也会使用默认值。
+
+更新 Compose 配置或修改 DNS 后，执行：
+
+```bash
+docker compose config --quiet
+docker compose up -d --no-deps --force-recreate api
+```
+
+普通 `docker compose restart api` 不会应用新的 DNS 配置。容器内仍显示 `127.0.0.11` 属于正常情况：Docker 内置 DNS 继续解析 `pgbouncer`、`redis` 等服务名，并将外部查询转发给配置的 DNS 上游。
+
+若公共 DNS 已能查到 MX，但后台仍报 `lookup ... on 127.0.0.11:53: no such host`，可在容器内对比默认解析与指定上游的结果（将 `example.com` 替换为实际域名）：
+
+```bash
+docker compose exec api nslookup -type=MX example.com
+docker compose exec api nslookup -type=MX example.com 1.1.1.1
+docker compose exec api nslookup -type=MX mx-check.gmail.outlook.mail.com.net.example.com
+```
+
+不同 DNS 上游可能保留不同的旧记录或不存在记录的缓存；指定上游返回正常，并不代表其他上游的缓存已刷新。容器内查询正常后，再到管理后台重新检测域名。
 
 ---
 
