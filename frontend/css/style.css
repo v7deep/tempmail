@@ -1737,3 +1737,22 @@ button:disabled, .btn:disabled { cursor: not-allowed; opacity: .45; }
   .mailbox-pagination-actions .btn { min-width: auto; }
   #topbar-actions .btn { border-radius: 0; }
 }
+
+/* API reference: dense, readable zero-radius endpoint list */
+.api-doc-group { margin: 1.2rem 0; }
+.api-doc-group h3 { margin: 0 0 .65rem; font-size: 1rem; }
+.api-endpoint-list { border: 1px solid var(--border); background: var(--bg-card); }
+.api-endpoint-row { display: flex; align-items: flex-start; gap: 1rem; padding: .85rem 1rem; border-bottom: 1px solid var(--border-light); }
+.api-endpoint-row:last-child { border-bottom: 0; }
+.api-method { flex: 0 0 4.5rem; font: 700 .72rem/1.6 var(--font-mono); text-align: center; border: 1px solid var(--border); padding: .1rem .3rem; }
+.api-method-get { color: var(--clr-success); }
+.api-method-post { color: var(--clr-primary-light); }
+.api-method-delete { color: var(--clr-danger); }
+.api-endpoint-main { min-width: 0; display: grid; gap: .32rem; }
+.api-endpoint-main code { word-break: break-all; font-size: .81rem; }
+.api-endpoint-main strong { font-size: .86rem; }
+.api-endpoint-main p { margin: 0; color: var(--text-secondary); font-size: .8rem; line-height: 1.6; }
+@media (max-width: 600px) {
+  .api-endpoint-row { gap: .65rem; padding: .75rem; }
+  .api-method { flex-basis: 3.7rem; }
+}
