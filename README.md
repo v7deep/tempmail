@@ -304,6 +304,20 @@ X-RateLimit-Reset: 1735000000
 
 ---
 
+## 邮件 MIME 编码与更新
+
+收件器会解码主题和发件人中的 MIME Q / B 编码，并处理纯文本、HTML 和嵌套 multipart 正文的 Base64 / quoted-printable 传输编码。标为附件的文本部分不会被当作正文。无法解码的邮件头或损坏的正文编码保留原值，原始 MIME 邮件继续保存。
+
+已入库邮件的主题和发件人会在列表、详情 API 返回时兼容解码，无需修改已有记录或执行数据库迁移。已有邮件正文仍保留原先的解析结果。
+
+拉取更新后重建 API 和 Postfix，使收件器及旧邮件显示兼容同时生效：
+
+```bash
+docker compose up -d --build --no-deps --force-recreate api postfix
+```
+
+---
+
 ## 数据库迁移
 
 | 文件 | 用途 |

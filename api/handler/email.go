@@ -36,13 +36,21 @@ func (h *EmailHandler) List(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	size, _ := strconv.Atoi(c.DefaultQuery("size", "20"))
-	if page < 1 { page = 1 }
-	if size < 1 || size > 100 { size = 20 }
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 || size > 100 {
+		size = 20
+	}
 
 	emails, total, err := h.store.ListEmails(c.Request.Context(), mailboxID, page, size)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	for i := range emails {
+		emails[i].Subject = decodeEmailHeader(emails[i].Subject)
+		emails[i].Sender = decodeEmailHeader(emails[i].Sender)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -80,6 +88,8 @@ func (h *EmailHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "email not found"})
 		return
 	}
+	email.Subject = decodeEmailHeader(email.Subject)
+	email.Sender = decodeEmailHeader(email.Sender)
 
 	c.JSON(http.StatusOK, gin.H{"email": email})
 }
