@@ -591,10 +591,15 @@ func (s *Store) GetStats(ctx context.Context) (*model.Stats, error) {
 // ==================== Mailbox ====================
 
 func (s *Store) CreateMailbox(ctx context.Context, accountID uuid.UUID, address string, domainID int, fullAddress string, ttlMinutes int) (*model.Mailbox, error) {
-	if ttlMinutes <= 0 {
+	if ttlMinutes < 0 {
 		ttlMinutes = 30
 	}
 	expiresAt := time.Now().Add(time.Duration(ttlMinutes) * time.Minute)
+	// Keep expires_at NOT NULL for compatibility with existing installations.
+	// A far-future timestamp represents permanent mailboxes without a schema migration.
+	if ttlMinutes == 0 {
+		expiresAt = time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
+	}
 	var m model.Mailbox
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO mailboxes (account_id, address, domain_id, full_address, expires_at)
