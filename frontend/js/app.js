@@ -753,7 +753,7 @@ async function renderDashboard(container, page = 1) {
     ` : ''}
     <div class="mailbox-toolbar" id="mailbox-toolbar">
       <label class="mailbox-search-label" for="mailbox-search">搜索邮箱
-        <input id="mailbox-search" class="form-input" type="search" placeholder="输入邮箱地址..." value="${escHtml(state.mailboxSearch)}" autocomplete="off" oninput="scheduleMailboxSearch(this.value)" />
+        <input id="mailbox-search" class="form-input" type="search" placeholder="搜索邮箱地址（Ctrl / ⌘ + K）" value="${escHtml(state.mailboxSearch)}" autocomplete="off" oninput="scheduleMailboxSearch(this.value)" aria-controls="mailbox-results" />
       </label>
       <label class="mailbox-size-label" for="mailbox-page-size">每页显示
         <select id="mailbox-page-size" class="form-input" onchange="setMailboxPageSize(this.value)">
@@ -2368,3 +2368,19 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+/* Global mailbox quick-find: shortcut works outside editable fields only. */
+document.addEventListener('keydown', function(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    if (state.page !== 'dashboard') return;
+    const search = $('mailbox-search');
+    if (!search) return;
+    event.preventDefault();
+    search.focus();
+    search.select();
+  }
+  if (event.key === 'Escape' && document.activeElement?.id === 'mailbox-search') {
+    document.activeElement.blur();
+  }
+});
