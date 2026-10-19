@@ -180,7 +180,7 @@ func (h *MailboxHandler) List(c *gin.Context) {
 		size = 20
 	}
 
-	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size)
+	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size, strings.TrimSpace(c.Query("search")))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
