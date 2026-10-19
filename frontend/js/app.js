@@ -32,6 +32,8 @@ const state = {
   mailboxes: [],
   mailboxPage: 1,
   mailboxTotal: 0,
+  mailboxSize: 20,
+  mailboxSearch: '',
   emails:    [],
 };
 
@@ -181,8 +183,8 @@ const api = {
   getDomainStatus: id => apiFetch(API_BASE + '/domains/' + id + '/status'),
   // 邮箱 → 解包 {data:[...]}
   createMailbox:   (body) => apiFetch(API_BASE + '/mailboxes', { method: 'POST', body: JSON.stringify(body || {}) }).then(d => d.mailbox || d),
-  listMailboxes:   (page = 1, size = 20) =>
-    apiFetch(API_BASE + '/mailboxes?page=' + page + '&size=' + size),
+  listMailboxes:   (page = 1, size = 20, search = '') =>
+    apiFetch(API_BASE + '/mailboxes?' + new URLSearchParams({ page, size, search })),
   deleteMailbox: id  => apiFetch(API_BASE + '/mailboxes/' + id, { method: 'DELETE' }),
   // 邮件 → 解包 {data:[...]}
   listEmails: mid    => apiFetch(API_BASE + '/mailboxes/' + mid + '/emails').then(d => Array.isArray(d) ? d : (d.data || [])),
@@ -690,10 +692,10 @@ async function renderPage(page) {
 // ─── Dashboard ─────────────────────────────────────────────
 async function renderDashboard(container, page = 1) {
   const isAdmin = state.account?.is_admin;
-  const pageSize = 20;
+  const pageSize = state.mailboxSize;
   page = Math.max(1, Math.floor(Number(page) || 1));
   const [mailboxResult, domains, statsData] = await Promise.all([
-    api.listMailboxes(page, pageSize),
+    api.listMailboxes(page, pageSize, state.mailboxSearch),
     api.domains(),
     api.stats().catch(() => null),
   ]);
@@ -749,60 +751,99 @@ async function renderDashboard(container, page = 1) {
         <div style="font-size:0.82rem">${icon('refresh')} 有 ${pendingDomains} 个域名正在 MX 验证中，通过后将自动加入域名池</div>
       </div>
     ` : ''}
-    ${total === 0 ? `
-      <div class="card" style="margin-top:0.8rem">
-        <div class="empty-state">
-          <span class="empty-icon">${icon('mail')}</span>
-          <p>还没有邮箱，点击右上角"新建邮箱"创建第一个</p>
-        </div>
-      </div>
-    ` : `
-      <div class="mailbox-grid" id="mailbox-grid" style="margin-top:0.8rem">
-        ${boxes.map(mb => buildMailboxCard(mb)).join('')}
-      </div>
-      <div class="mailbox-pagination" aria-label="邮箱分页">
-        <span>共 ${total} 个邮箱 · 第 ${page} / ${totalPages} 页</span>
-        <div class="mailbox-pagination-actions">
-          <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="changeMailboxPage(${page - 1})">上一页</button>
-          <button class="btn btn-ghost btn-sm" ${page >= totalPages ? 'disabled' : ''} onclick="changeMailboxPage(${page + 1})">下一页</button>
-        </div>
-      </div>
-    `}
+    <div class="mailbox-toolbar" id="mailbox-toolbar">
+      <label class="mailbox-search-label" for="mailbox-search">搜索邮箱
+        <input id="mailbox-search" class="form-input" type="search" placeholder="输入邮箱地址..." value="${escHtml(state.mailboxSearch)}" autocomplete="off" oninput="scheduleMailboxSearch(this.value)" />
+      </label>
+      <label class="mailbox-size-label" for="mailbox-page-size">每页显示
+        <select id="mailbox-page-size" class="form-input" onchange="setMailboxPageSize(this.value)">
+          ${[10,20,50,100].map(n => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n} 条</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <div id="mailbox-results">
+      ${mailboxResultsHTML(boxes, total, page, pageSize, state.mailboxSearch)}
+    </div>
   `;
 }
 
+function mailboxResultsHTML(boxes, total, page, size, search) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (total === 0) return `<div class="card"><div class="empty-state">
+    <span class="empty-icon">${icon('mail')}</span>
+    <p>${search ? '没有找到匹配的邮箱' : '还没有邮箱'}</p>
+    <p style="margin-top:0.5rem;font-size:0.8rem">${search ? '尝试更换关键词或清空搜索条件' : '点击右上角新建邮箱开始使用'}</p>
+  </div></div>`;
+  return `<div class="mailbox-grid" id="mailbox-grid">${boxes.map(buildMailboxCard).join('')}</div>
+    <div class="mailbox-pagination">
+      <span>共 ${total} 个邮箱 · 第 ${page} / ${pages} 页</span>
+      <div class="mailbox-pagination-actions">
+        <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="changeMailboxPage(${page - 1})">上一页</button>
+        <input id="mailbox-jump" class="form-input mailbox-jump" type="number" min="1" max="${pages}" value="${page}" aria-label="跳转页码" onkeydown="if(event.key==='Enter')jumpMailboxPage()" />
+        <button class="btn btn-ghost btn-sm" onclick="jumpMailboxPage()">跳转</button>
+        <button class="btn btn-ghost btn-sm" ${page >= pages ? 'disabled' : ''} onclick="changeMailboxPage(${page + 1})">下一页</button>
+      </div>
+    </div>`;
+}
 let mailboxPageRequest = 0;
-window.changeMailboxPage = async function(page) {
+let mailboxSearchTimer;
+window.scheduleMailboxSearch = function(value) {
+  clearTimeout(mailboxSearchTimer);
+  const search = value.trim();
+  mailboxPageRequest++;
+  mailboxSearchTimer = setTimeout(() => {
+    state.mailboxSearch = search;
+    changeMailboxPage(1, true);
+  }, 350);
+};
+window.setMailboxPageSize = function(size) {
+  const n = Number(size);
+  if (![10,20,50,100].includes(n)) return;
+  state.mailboxSize = n;
+  changeMailboxPage(1, true);
+};
+window.jumpMailboxPage = function() {
+  const input = $('mailbox-jump');
+  if (!input) return;
+  const page = Number(input.value);
+  const pages = Math.max(1, Math.ceil(state.mailboxTotal / state.mailboxSize));
+  if (!Number.isInteger(page) || page < 1 || page > pages) {
+    toast('请输入 1 至 ' + pages + ' 之间的页码', 'warn');
+    input.value = state.mailboxPage;
+    return;
+  }
+  changeMailboxPage(page);
+};
+window.changeMailboxPage = async function(page, force = false) {
   const next = Math.max(1, Math.floor(Number(page) || 1));
-  if (state.page !== 'dashboard' || next === state.mailboxPage) return;
-  const container = $('page-content');
-  if (!container) return;
+  if (state.page !== 'dashboard' || (!force && next === state.mailboxPage)) return;
   const request = ++mailboxPageRequest;
-  const buttons = container.querySelectorAll('.mailbox-pagination button');
-  buttons.forEach(button => button.disabled = true);
+  const size = state.mailboxSize;
+  const search = state.mailboxSearch;
+  const results = $('mailbox-results');
+  if (results) results.setAttribute('aria-busy', 'true');
   try {
-    const result = await api.listMailboxes(next, 20);
+    const result = await api.listMailboxes(next, size, search);
     if (request !== mailboxPageRequest || state.page !== 'dashboard') return;
     const total = Number(result.total) || 0;
-    const pages = Math.max(1, Math.ceil(total / 20));
-    if (next > pages) return renderDashboard(container, pages);
+    const pages = Math.max(1, Math.ceil(total / size));
+    if (next > pages) return changeMailboxPage(pages, true);
     state.mailboxes = result.data || [];
     state.mailboxTotal = total;
     state.mailboxPage = next;
-    const grid = $('mailbox-grid');
-    if (grid) grid.innerHTML = state.mailboxes.map(buildMailboxCard).join('');
-    const pagination = container.querySelector('.mailbox-pagination');
-    if (pagination) {
-      pagination.innerHTML = `<span>共 ${total} 个邮箱 · 第 ${next} / ${pages} 页</span>
-        <div class="mailbox-pagination-actions">
-          <button class="btn btn-ghost btn-sm" ${next <= 1 ? 'disabled' : ''} onclick="changeMailboxPage(${next - 1})">上一页</button>
-          <button class="btn btn-ghost btn-sm" ${next >= pages ? 'disabled' : ''} onclick="changeMailboxPage(${next + 1})">下一页</button>
-        </div>`;
+    const current = $('mailbox-results');
+    if (current) {
+      current.innerHTML = mailboxResultsHTML(state.mailboxes, total, next, size, search);
+      current.removeAttribute('aria-busy');
     }
-    grid?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    const label = $('page-content')?.querySelector('.stat-value');
+    if (label && !search) label.textContent = total.toLocaleString();
+    if (!force) $('mailbox-toolbar')?.scrollIntoView({ block: 'start', behavior: 'instant' });
   } catch (error) {
-    toast('加载邮箱失败：' + error.message, 'error');
-    if (request === mailboxPageRequest) buttons.forEach(button => button.disabled = false);
+    if (request === mailboxPageRequest) {
+      toast('加载邮箱失败：' + error.message, 'error');
+      results?.removeAttribute('aria-busy');
+    }
   }
 };
 
