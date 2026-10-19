@@ -30,6 +30,10 @@ const state = {
   currentEmail:   null,
   // 缓存
   mailboxes: [],
+  mailboxPage: 1,
+  mailboxTotal: 0,
+  mailboxSize: 20,
+  mailboxSearch: '',
   emails:    [],
 };
 
@@ -179,7 +183,8 @@ const api = {
   getDomainStatus: id => apiFetch(API_BASE + '/domains/' + id + '/status'),
   // 邮箱 → 解包 {data:[...]}
   createMailbox:   (body) => apiFetch(API_BASE + '/mailboxes', { method: 'POST', body: JSON.stringify(body || {}) }).then(d => d.mailbox || d),
-  listMailboxes:   () => apiFetch(API_BASE + '/mailboxes').then(d => Array.isArray(d) ? d : (d.data || [])),
+  listMailboxes:   (page = 1, size = 20, search = '') =>
+    apiFetch(API_BASE + '/mailboxes?' + new URLSearchParams({ page, size, search })),
   deleteMailbox: id  => apiFetch(API_BASE + '/mailboxes/' + id, { method: 'DELETE' }),
   // 邮件 → 解包 {data:[...]}
   listEmails: mid    => apiFetch(API_BASE + '/mailboxes/' + mid + '/emails').then(d => Array.isArray(d) ? d : (d.data || [])),
@@ -685,14 +690,22 @@ async function renderPage(page) {
 }
 
 // ─── Dashboard ─────────────────────────────────────────────
-async function renderDashboard(container) {
+async function renderDashboard(container, page = 1) {
   const isAdmin = state.account?.is_admin;
-  const [mailboxes, domains, statsData] = await Promise.all([
-    api.listMailboxes(),
+  const pageSize = state.mailboxSize;
+  page = Math.max(1, Math.floor(Number(page) || 1));
+  const [mailboxResult, domains, statsData] = await Promise.all([
+    api.listMailboxes(page, pageSize, state.mailboxSearch),
     api.domains(),
     api.stats().catch(() => null),
   ]);
-  state.mailboxes = mailboxes || [];
+  const total = Number(mailboxResult.total) || 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) return renderDashboard(container, totalPages);
+  if (state.page !== 'dashboard' || container !== $('page-content')) return;
+  state.mailboxPage = page;
+  state.mailboxTotal = total;
+  state.mailboxes = mailboxResult.data || [];
 
   const actions = $('topbar-actions');
   if (actions) {
@@ -708,7 +721,7 @@ async function renderDashboard(container) {
   const pendingDomains = (domains||[]).filter(d => d.status === 'pending').length;
 
   const statCards = [
-    { label: '我的邮箱', value: boxes.length,                   note: '当前有效' },
+    { label: '我的邮箱', value: total,                          note: '当前账户总数' },
     { label: '可用域名', value: activeDomains,                  note: `共 ${(domains||[]).length} 个` },
     { label: '收到邮件', value: st.total_emails ?? '—',         note: '全平台累计' },
     { label: '邮箱总量', value: st.total_mailboxes ?? '—',      note: `活跃 ${st.active_mailboxes ?? '—'} 个` },
@@ -738,26 +751,110 @@ async function renderDashboard(container) {
         <div style="font-size:0.82rem">${icon('refresh')} 有 ${pendingDomains} 个域名正在 MX 验证中，通过后将自动加入域名池</div>
       </div>
     ` : ''}
-    ${boxes.length === 0 ? `
-      <div class="card" style="margin-top:0.8rem">
-        <div class="empty-state">
-          <span class="empty-icon">${icon('mail')}</span>
-          <p>还没有邮箱，点击右上角"新建邮箱"创建第一个</p>
-        </div>
-      </div>
-    ` : `
-      <div class="mailbox-grid" id="mailbox-grid" style="margin-top:0.8rem">
-        ${boxes.map(mb => buildMailboxCard(mb)).join('')}
-      </div>
-    `}
+    <div class="mailbox-toolbar" id="mailbox-toolbar">
+      <label class="mailbox-search-label" for="mailbox-search">搜索邮箱
+        <input id="mailbox-search" class="form-input" type="search" placeholder="输入邮箱地址..." value="${escHtml(state.mailboxSearch)}" autocomplete="off" oninput="scheduleMailboxSearch(this.value)" />
+      </label>
+      <label class="mailbox-size-label" for="mailbox-page-size">每页显示
+        <select id="mailbox-page-size" class="form-input" onchange="setMailboxPageSize(this.value)">
+          ${[10,20,50,100].map(n => `<option value="${n}" ${n === pageSize ? 'selected' : ''}>${n} 条</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <div id="mailbox-results">
+      ${mailboxResultsHTML(boxes, total, page, pageSize, state.mailboxSearch)}
+    </div>
   `;
 }
 
+function mailboxResultsHTML(boxes, total, page, size, search) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (total === 0) return `<div class="card"><div class="empty-state">
+    <span class="empty-icon">${icon('mail')}</span>
+    <p>${search ? '没有找到匹配的邮箱' : '还没有邮箱'}</p>
+    <p style="margin-top:0.5rem;font-size:0.8rem">${search ? '尝试更换关键词或清空搜索条件' : '点击右上角新建邮箱开始使用'}</p>
+  </div></div>`;
+  return `<div class="mailbox-grid" id="mailbox-grid">${boxes.map(buildMailboxCard).join('')}</div>
+    <div class="mailbox-pagination">
+      <span>共 ${total} 个邮箱 · 第 ${page} / ${pages} 页</span>
+      <div class="mailbox-pagination-actions">
+        <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="changeMailboxPage(${page - 1})">上一页</button>
+        <input id="mailbox-jump" class="form-input mailbox-jump" type="number" min="1" max="${pages}" value="${page}" aria-label="跳转页码" onkeydown="if(event.key==='Enter')jumpMailboxPage()" />
+        <button class="btn btn-ghost btn-sm" onclick="jumpMailboxPage()">跳转</button>
+        <button class="btn btn-ghost btn-sm" ${page >= pages ? 'disabled' : ''} onclick="changeMailboxPage(${page + 1})">下一页</button>
+      </div>
+    </div>`;
+}
+let mailboxPageRequest = 0;
+let mailboxSearchTimer;
+window.scheduleMailboxSearch = function(value) {
+  clearTimeout(mailboxSearchTimer);
+  const search = value.trim();
+  mailboxPageRequest++;
+  mailboxSearchTimer = setTimeout(() => {
+    state.mailboxSearch = search;
+    changeMailboxPage(1, true);
+  }, 350);
+};
+window.setMailboxPageSize = function(size) {
+  const n = Number(size);
+  if (![10,20,50,100].includes(n)) return;
+  state.mailboxSize = n;
+  changeMailboxPage(1, true);
+};
+window.jumpMailboxPage = function() {
+  const input = $('mailbox-jump');
+  if (!input) return;
+  const page = Number(input.value);
+  const pages = Math.max(1, Math.ceil(state.mailboxTotal / state.mailboxSize));
+  if (!Number.isInteger(page) || page < 1 || page > pages) {
+    toast('请输入 1 至 ' + pages + ' 之间的页码', 'warn');
+    input.value = state.mailboxPage;
+    return;
+  }
+  changeMailboxPage(page);
+};
+window.changeMailboxPage = async function(page, force = false) {
+  const next = Math.max(1, Math.floor(Number(page) || 1));
+  if (state.page !== 'dashboard' || (!force && next === state.mailboxPage)) return;
+  const request = ++mailboxPageRequest;
+  const size = state.mailboxSize;
+  const search = state.mailboxSearch;
+  const results = $('mailbox-results');
+  if (results) results.setAttribute('aria-busy', 'true');
+  try {
+    const result = await api.listMailboxes(next, size, search);
+    if (request !== mailboxPageRequest || state.page !== 'dashboard') return;
+    const total = Number(result.total) || 0;
+    const pages = Math.max(1, Math.ceil(total / size));
+    if (next > pages) return changeMailboxPage(pages, true);
+    state.mailboxes = result.data || [];
+    state.mailboxTotal = total;
+    state.mailboxPage = next;
+    const current = $('mailbox-results');
+    if (current) {
+      current.innerHTML = mailboxResultsHTML(state.mailboxes, total, next, size, search);
+      current.removeAttribute('aria-busy');
+    }
+    const label = $('page-content')?.querySelector('.stat-value');
+    if (label && !search) label.textContent = total.toLocaleString();
+    if (!force) $('mailbox-toolbar')?.scrollIntoView({ block: 'start', behavior: 'instant' });
+  } catch (error) {
+    if (request === mailboxPageRequest) {
+      toast('加载邮箱失败：' + error.message, 'error');
+      results?.removeAttribute('aria-busy');
+    }
+  }
+};
+
 function buildMailboxCard(mb) {
   const expiresAt = mb.expires_at ? new Date(mb.expires_at) : null;
+  const neverExpires = !expiresAt || expiresAt.getUTCFullYear() >= 9999;
   const now = new Date();
   let expiryHtml = '';
-  if (expiresAt) {
+  if (neverExpires) {
+    expiryHtml = `<span style="color:var(--clr-success);font-size:0.75rem">${icon('check')} 永不过期</span>`;
+  } else if (expiresAt) {
     const diffMs = expiresAt - now;
     if (diffMs <= 0) {
       expiryHtml = `<span style="color:var(--clr-danger);font-size:0.75rem">${icon('timer')} 已过期</span>`;
@@ -973,50 +1070,63 @@ async function renderInbox(container) {
   const actions = $('topbar-actions');
   if (actions) {
     actions.innerHTML = `
-      <button class="btn btn-ghost btn-sm" onclick="copyText('${escHtml(mb.full_address)}')">${iconButton('copy', '复制地址')}</button>
-      <button class="btn btn-primary btn-sm" onclick="refreshInbox()" style="margin-left:0.4rem">${iconButton('refresh', '刷新')}</button>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')" style="margin-left:0.4rem">${iconButton('arrowLeft', '返回')}</button>
+      <button class="btn btn-ghost btn-sm" onclick="copyText('${escHtml(mb.full_address)}')" title="复制邮箱地址">${iconButton('copy', '复制地址')}</button>
+      <button class="btn btn-primary btn-sm" id="inbox-refresh-btn" onclick="refreshInbox()" title="刷新邮件">${iconButton('refresh', '刷新')}</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')" title="返回邮箱总览">${iconButton('arrowLeft', '返回')}</button>
     `;
   }
 
   const emails = await api.listEmails(mb.id);
   state.emails = emails || [];
+  renderInboxList(container);
 
-  // 启动自动刷新（每 8 秒）
+  // 启动自动刷新（每 8 秒）。只更新邮件列表，不再递归重跑整个页面请求。
   clearInboxPoller();
   _inboxPollerTimer = setInterval(async () => {
     if (state.page !== 'inbox') { clearInboxPoller(); return; }
     try {
       const fresh = await api.listEmails(mb.id);
       if (!fresh) return;
-      // 有新邮件才重新渲染，避免闪烁
       if (fresh.length !== (state.emails || []).length ||
           (fresh[0]?.id !== state.emails?.[0]?.id)) {
         state.emails = fresh;
         const c = $('page-content');
-        if (c) renderInbox(c);
+        if (c && state.page === 'inbox') renderInboxList(c, true);
       }
-    } catch(e) { /* 静默失败 */ }
+    } catch(e) { /* 自动刷新失败不打断用户操作 */ }
   }, 8000);
+}
+
+function renderInboxList(container, preserveScroll = false) {
+  if (!container) return;
+  const mb = state.currentMailbox;
+  const scrollY = preserveScroll ? window.scrollY : 0;
 
   if (!state.emails.length) {
     container.innerHTML = `
-      <div class="card">
+      <div class="card inbox-empty-card">
         <div class="empty-state">
           <span class="empty-icon">${icon('mailOpen')}</span>
-          <p>暂无邮件</p>
-          <p style="margin-top:0.5rem;font-size:0.8rem">向 <strong>${escHtml(mb.full_address)}</strong> 发送邮件后，邮件将显示在此处</p>
+          <p>正在等待新邮件</p>
+          <p style="margin-top:0.5rem;font-size:0.8rem">发送到 <strong>${escHtml(mb?.full_address || '')}</strong>，此页面会自动刷新</p>
         </div>
       </div>
     `;
-    return;
+  } else {
+    container.innerHTML = `
+      <div class="card inbox-card" style="padding:0">
+        <div class="inbox-statusbar">
+          <span>${state.emails.length} 封邮件</span>
+          <span class="inbox-live-dot"><i></i> 自动刷新已开启</span>
+        </div>
+        <div class="inbox-list">
+          ${state.emails.map(e => buildEmailItem(mb.id, e)).join('')}
+        </div>
+      </div>
+    `;
   }
 
-  container.innerHTML = `
-    <div class="card" style="padding:0">
-      ${state.emails.map(e => buildEmailItem(mb.id, e)).join('')}
-    </div>
-  `;
+  if (preserveScroll && scrollY > 0) requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 function buildEmailItem(mbId, e) {
@@ -1045,9 +1155,26 @@ window.openEmail = function(mbId, eid) {
   navigate('email-view');
 };
 
-window.refreshInbox = function() {
-  clearInboxPoller();
-  renderPage('inbox');
+window.refreshInbox = async function() {
+  const mb = state.currentMailbox;
+  if (!mb || state.page !== 'inbox') return;
+  const btn = $('inbox-refresh-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+  }
+  try {
+    const fresh = await api.listEmails(mb.id);
+    state.emails = fresh || [];
+    renderInboxList($('page-content'), true);
+  } catch (e) {
+    toast('刷新失败：' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+    }
+  }
 };
 
 window.deleteEmail = async function(mbId, eid) {
@@ -1068,7 +1195,7 @@ async function renderEmailView(container) {
   if (actions) {
     actions.innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="navigate('inbox')">${iconButton('arrowLeft', '返回列表')}</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteEmail('${mb.id}','${eid}');navigate('inbox')" style="margin-left:0.4rem">删除</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteEmail('${mb.id}','${eid}')" style="margin-left:0.4rem">删除</button>
     `;
   }
 

@@ -44,7 +44,7 @@ func (h *MailboxHandler) Create(c *gin.Context) {
 	// 读取 TTL 设置
 	ttlMinutes := 30
 	if ttlStr, err := h.store.GetSetting(c.Request.Context(), "mailbox_ttl_minutes"); err == nil {
-		if n, err := strconv.Atoi(ttlStr); err == nil && n > 0 {
+		if n, err := strconv.Atoi(ttlStr); err == nil && n >= 0 {
 			ttlMinutes = n
 		}
 	}
@@ -180,7 +180,7 @@ func (h *MailboxHandler) List(c *gin.Context) {
 		size = 20
 	}
 
-	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size)
+	mailboxes, total, err := h.store.ListMailboxes(c.Request.Context(), account.ID, page, size, strings.TrimSpace(c.Query("search")))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

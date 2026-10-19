@@ -591,10 +591,15 @@ func (s *Store) GetStats(ctx context.Context) (*model.Stats, error) {
 // ==================== Mailbox ====================
 
 func (s *Store) CreateMailbox(ctx context.Context, accountID uuid.UUID, address string, domainID int, fullAddress string, ttlMinutes int) (*model.Mailbox, error) {
-	if ttlMinutes <= 0 {
+	if ttlMinutes < 0 {
 		ttlMinutes = 30
 	}
 	expiresAt := time.Now().Add(time.Duration(ttlMinutes) * time.Minute)
+	// Keep expires_at NOT NULL for compatibility with existing installations.
+	// A far-future timestamp represents permanent mailboxes without a schema migration.
+	if ttlMinutes == 0 {
+		expiresAt = time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
+	}
 	var m model.Mailbox
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO mailboxes (account_id, address, domain_id, full_address, expires_at)
@@ -608,19 +613,19 @@ func (s *Store) CreateMailbox(ctx context.Context, accountID uuid.UUID, address 
 	return &m, nil
 }
 
-func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int) ([]model.Mailbox, int, error) {
+func (s *Store) ListMailboxes(ctx context.Context, accountID uuid.UUID, page, size int, search string) ([]model.Mailbox, int, error) {
 	var total int
 	err := s.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1`, accountID).Scan(&total)
+		`SELECT COUNT(*) FROM mailboxes WHERE account_id = $1 AND ($2 = '' OR POSITION(LOWER($2) IN LOWER(full_address)) > 0)`, accountID, search).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, account_id, address, domain_id, full_address, created_at, expires_at
-		 FROM mailboxes WHERE account_id = $1
-		 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-		accountID, size, (page-1)*size,
+		 FROM mailboxes WHERE account_id = $1 AND ($4 = '' OR POSITION(LOWER($4) IN LOWER(full_address)) > 0)
+		 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+		accountID, size, (page-1)*size, search,
 	)
 	if err != nil {
 		return nil, 0, err
