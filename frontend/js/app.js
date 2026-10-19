@@ -973,50 +973,63 @@ async function renderInbox(container) {
   const actions = $('topbar-actions');
   if (actions) {
     actions.innerHTML = `
-      <button class="btn btn-ghost btn-sm" onclick="copyText('${escHtml(mb.full_address)}')">${iconButton('copy', '复制地址')}</button>
-      <button class="btn btn-primary btn-sm" onclick="refreshInbox()" style="margin-left:0.4rem">${iconButton('refresh', '刷新')}</button>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')" style="margin-left:0.4rem">${iconButton('arrowLeft', '返回')}</button>
+      <button class="btn btn-ghost btn-sm" onclick="copyText('${escHtml(mb.full_address)}')" title="复制邮箱地址">${iconButton('copy', '复制地址')}</button>
+      <button class="btn btn-primary btn-sm" id="inbox-refresh-btn" onclick="refreshInbox()" title="刷新邮件">${iconButton('refresh', '刷新')}</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')" title="返回邮箱总览">${iconButton('arrowLeft', '返回')}</button>
     `;
   }
 
   const emails = await api.listEmails(mb.id);
   state.emails = emails || [];
+  renderInboxList(container);
 
-  // 启动自动刷新（每 8 秒）
+  // 启动自动刷新（每 8 秒）。只更新邮件列表，不再递归重跑整个页面请求。
   clearInboxPoller();
   _inboxPollerTimer = setInterval(async () => {
     if (state.page !== 'inbox') { clearInboxPoller(); return; }
     try {
       const fresh = await api.listEmails(mb.id);
       if (!fresh) return;
-      // 有新邮件才重新渲染，避免闪烁
       if (fresh.length !== (state.emails || []).length ||
           (fresh[0]?.id !== state.emails?.[0]?.id)) {
         state.emails = fresh;
         const c = $('page-content');
-        if (c) renderInbox(c);
+        if (c && state.page === 'inbox') renderInboxList(c, true);
       }
-    } catch(e) { /* 静默失败 */ }
+    } catch(e) { /* 自动刷新失败不打断用户操作 */ }
   }, 8000);
+}
+
+function renderInboxList(container, preserveScroll = false) {
+  if (!container) return;
+  const mb = state.currentMailbox;
+  const scrollY = preserveScroll ? window.scrollY : 0;
 
   if (!state.emails.length) {
     container.innerHTML = `
-      <div class="card">
+      <div class="card inbox-empty-card">
         <div class="empty-state">
           <span class="empty-icon">${icon('mailOpen')}</span>
-          <p>暂无邮件</p>
-          <p style="margin-top:0.5rem;font-size:0.8rem">向 <strong>${escHtml(mb.full_address)}</strong> 发送邮件后，邮件将显示在此处</p>
+          <p>正在等待新邮件</p>
+          <p style="margin-top:0.5rem;font-size:0.8rem">发送到 <strong>${escHtml(mb?.full_address || '')}</strong>，此页面会自动刷新</p>
         </div>
       </div>
     `;
-    return;
+  } else {
+    container.innerHTML = `
+      <div class="card inbox-card" style="padding:0">
+        <div class="inbox-statusbar">
+          <span>${state.emails.length} 封邮件</span>
+          <span class="inbox-live-dot"><i></i> 自动刷新已开启</span>
+        </div>
+        <div class="inbox-list">
+          ${state.emails.map(e => buildEmailItem(mb.id, e)).join('')}
+        </div>
+      </div>
+    `;
   }
 
-  container.innerHTML = `
-    <div class="card" style="padding:0">
-      ${state.emails.map(e => buildEmailItem(mb.id, e)).join('')}
-    </div>
-  `;
+  if (preserveScroll && scrollY > 0) requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 function buildEmailItem(mbId, e) {
@@ -1045,9 +1058,26 @@ window.openEmail = function(mbId, eid) {
   navigate('email-view');
 };
 
-window.refreshInbox = function() {
-  clearInboxPoller();
-  renderPage('inbox');
+window.refreshInbox = async function() {
+  const mb = state.currentMailbox;
+  if (!mb || state.page !== 'inbox') return;
+  const btn = $('inbox-refresh-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+  }
+  try {
+    const fresh = await api.listEmails(mb.id);
+    state.emails = fresh || [];
+    renderInboxList($('page-content'), true);
+  } catch (e) {
+    toast('刷新失败：' + e.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+    }
+  }
 };
 
 window.deleteEmail = async function(mbId, eid) {
@@ -1068,7 +1098,7 @@ async function renderEmailView(container) {
   if (actions) {
     actions.innerHTML = `
       <button class="btn btn-ghost btn-sm" onclick="navigate('inbox')">${iconButton('arrowLeft', '返回列表')}</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteEmail('${mb.id}','${eid}');navigate('inbox')" style="margin-left:0.4rem">删除</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteEmail('${mb.id}','${eid}')" style="margin-left:0.4rem">删除</button>
     `;
   }
 
