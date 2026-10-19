@@ -82,6 +82,7 @@ func (c *emailCounters) drain() (int64, map[uuid.UUID]int64) {
 type Store struct {
 	pool     *pgxpool.Pool
 	counters emailCounters
+ telegramQueue chan telegramEvent
 }
 
 type PoolOptions struct {
@@ -909,6 +910,7 @@ func (s *Store) DeliverEmails(ctx context.Context, recipients []string, sender, 
 		}
 	}
 	s.counters.incMany(deliveredMailboxIDs)
+ s.enqueueTelegram(results, sender, subject)
 	return results, nil
 }
 
