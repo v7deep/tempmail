@@ -1642,3 +1642,22 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Mailbox server-side pagination */
+.mailbox-pagination {
+  margin: 1rem 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.mailbox-pagination-actions { display: flex; gap: 0.5rem; }
+.mailbox-pagination-actions .btn { min-width: 4.75rem; }
+@media (max-width: 600px) {
+  .mailbox-pagination { justify-content: center; text-align: center; }
+  .mailbox-pagination-actions { width: 100%; justify-content: center; }
+  .mailbox-pagination-actions .btn { flex: 1; max-width: 10rem; min-height: 2.5rem; }
+}
