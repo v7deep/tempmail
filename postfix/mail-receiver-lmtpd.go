@@ -20,12 +20,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"mime"
 	"mime/multipart"
+	"mime/quotedprintable"
 	"net"
 	"net/http"
 	"net/mail"
@@ -324,8 +326,8 @@ func (s *session) deliverAll(ctx context.Context, raw []byte) {
 	msg, parseErr := mail.ReadMessage(bytes.NewReader(raw))
 	var sender, subject, bodyText, bodyHTML string
 	if parseErr == nil {
-		sender = msg.Header.Get("From")
-		subject = msg.Header.Get("Subject")
+		sender = decodeHeader(msg.Header.Get("From"))
+		subject = decodeHeader(msg.Header.Get("Subject"))
 		bodyText, bodyHTML = extractBodies(msg)
 	}
 	if sender == "" {
@@ -490,16 +492,43 @@ func readAndDrain(r io.Reader, limit int64) ([]byte, error) {
 	return kept.Bytes(), nil
 }
 
+func decodeHeader(value string) string {
+	decoded, err := new(mime.WordDecoder).DecodeHeader(value)
+	if err != nil {
+		return value
+	}
+	return decoded
+}
+
+func decodeBody(r io.Reader, transferEncoding string) string {
+	raw, _ := io.ReadAll(io.LimitReader(r, maxMessageBytes))
+	var decoded io.Reader
+	switch strings.ToLower(strings.TrimSpace(transferEncoding)) {
+	case "base64":
+		decoded = base64.NewDecoder(base64.StdEncoding, bytes.NewReader(raw))
+	case "quoted-printable":
+		decoded = quotedprintable.NewReader(bytes.NewReader(raw))
+	default:
+		return string(raw)
+	}
+	body, err := io.ReadAll(decoded)
+	if err != nil {
+		// Preserve malformed content rather than replacing it with a partial body.
+		return string(raw)
+	}
+	return string(body)
+}
+
 func extractBodies(msg *mail.Message) (string, string) {
 	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
 	if err == nil && strings.HasPrefix(strings.ToLower(mediaType), "multipart/") {
 		return extractMultipart(msg.Body, params["boundary"])
 	}
-	body, _ := io.ReadAll(io.LimitReader(msg.Body, maxMessageBytes))
+	body := decodeBody(msg.Body, msg.Header.Get("Content-Transfer-Encoding"))
 	if strings.EqualFold(mediaType, "text/html") {
-		return "", string(body)
+		return "", body
 	}
-	return string(body), ""
+	return body, ""
 }
 
 func extractMultipart(r io.Reader, boundary string) (string, string) {
@@ -510,12 +539,19 @@ func extractMultipart(r io.Reader, boundary string) (string, string) {
 	var textBody, htmlBody string
 	mr := multipart.NewReader(r, boundary)
 	for {
-		part, err := mr.NextPart()
+		// NextRawPart leaves transfer decoding to decodeBody, including QP.
+		// NextPart would already decode QP and could decode '=3D41' twice.
+		part, err := mr.NextRawPart()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			break
+		}
+		disposition, _, _ := mime.ParseMediaType(part.Header.Get("Content-Disposition"))
+		if strings.EqualFold(disposition, "attachment") {
+			_ = part.Close()
+			continue
 		}
 		mediaType, params, _ := mime.ParseMediaType(part.Header.Get("Content-Type"))
 		mediaType = strings.ToLower(mediaType)
@@ -529,15 +565,15 @@ func extractMultipart(r io.Reader, boundary string) (string, string) {
 			}
 			continue
 		}
-		body, _ := io.ReadAll(io.LimitReader(part, maxMessageBytes))
+		body := decodeBody(part, part.Header.Get("Content-Transfer-Encoding"))
 		switch mediaType {
 		case "text/plain":
 			if textBody == "" {
-				textBody = string(body)
+				textBody = body
 			}
 		case "text/html":
 			if htmlBody == "" {
-				htmlBody = string(body)
+				htmlBody = body
 			}
 		}
 	}
